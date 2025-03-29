@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "BesTransactions": {
+      "commandName": "Project",
+      "commandLineArgs": "-LogFolder \"X:\\20250319-Logs\\Departure\\BES\\BES-MS1\\1446-09-13\" -DBSuffix \"departure1009\""
+    }
+  }
+}
