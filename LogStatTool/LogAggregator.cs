@@ -48,7 +48,7 @@ public class LogAggregator
     /// </summary>
     /// <param name="folderPath">Root folder containing logs.</param>
     /// <param name="progress">Optional progress reporter: we call .Report(1) per file.</param>
-    public async Task<IDictionary<string, (string Representative, int Count)>>
+    public async Task<IDictionary<byte[], MatchCounts>>
         AggregateLogFilesAsync(string[] logFiles, IProgress<int>? progress = null)
     {
         // 1) Create a bounded or unbounded channel based on maxQueueSize
@@ -58,7 +58,7 @@ public class LogAggregator
         var linesChannel = CreateChannel<string>(channelOptions);
 
         // 2) Thread-safe dictionary for final results
-        var globalResults = new ConcurrentDictionary<string, (string Representative, int Count)>();
+        var globalResults = new ConcurrentDictionary<byte[], MatchCounts>(new ByteArrayComparer());
 
         // 3) Producer task: enumerates files, reads lines in bulk, writes them to channel
         var producerTask = Task.Run(async () =>
@@ -130,12 +130,10 @@ public class LogAggregator
                         if (hashBytes == null)
                             continue;
 
-                        // Convert hash to hex string
-                        var hashKey = BitConverter.ToString(hashBytes);
 
                         // Merge results
                         globalResults.AddOrUpdate(
-                            hashKey,
+                            hashBytes,
                             (line, 1),
                             (_, oldVal) => (oldVal.Representative, oldVal.Count + 1));
                     }
@@ -148,5 +146,18 @@ public class LogAggregator
 
         // Return final dictionary
         return globalResults;
+    }
+}
+
+public record struct MatchCounts(string Representative, int Count)
+{
+    public static implicit operator (string Representative, int Count)(MatchCounts value)
+    {
+        return (value.Representative, value.Count);
+    }
+
+    public static implicit operator MatchCounts((string Representative, int Count) value)
+    {
+        return new MatchCounts(value.Representative, value.Count);
     }
 }

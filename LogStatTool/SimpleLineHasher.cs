@@ -1,14 +1,23 @@
 ﻿using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 
 namespace LogStatTool;
 
 public class SimpleLineHasher : ILogLineHasher
 {
     private readonly LineOptimizationOptions _options;
-
+    private readonly Dictionary<string, Regex> _compiledPatterns;
     public SimpleLineHasher(LineOptimizationOptions options)
     {
         _options = options;
+        if (options?.ReplacmentPatterns?.Any() is true)
+        {
+            _compiledPatterns = new();
+            foreach (var pattern in options.ReplacmentPatterns)
+            {
+                _compiledPatterns.Add(pattern.Key, new Regex(pattern.Key, RegexOptions.Compiled));
+            }
+        }
     }
 
     /// <summary>
@@ -21,10 +30,11 @@ public class SimpleLineHasher : ILogLineHasher
         if (string.IsNullOrEmpty(rawLine))
             return null;
 
+        rawLine = CheckReplacments(rawLine);
         // Check the first CheckPrefixFilterLength characters for the PrefixFilter using ReadOnlySpan.
         int checkLen = Math.Min(_options.CheckPrefixFilterLength, rawLine.Length);
         ReadOnlySpan<char> firstPart = rawLine.AsSpan(0, checkLen);
-        if (firstPart.IndexOf(_options.PrefixFilter.AsSpan(), StringComparison.Ordinal) < 0)
+        if (Regex.IsMatch(firstPart.ToString(), _options.PrefixFilter, RegexOptions.IgnoreCase) is false)
             return null;
 
         // Truncate the line to MaxLineLength characters.
@@ -33,6 +43,15 @@ public class SimpleLineHasher : ILogLineHasher
 
         ulong hash = ComputeFNV1aHashOnTheFly(rawLine.AsSpan());
         return BitConverter.GetBytes(hash);
+    }
+
+    private string CheckReplacments(string rawLine)
+    {
+        foreach (var pattern in _options.ReplacmentPatterns)
+        {
+            rawLine = _compiledPatterns[pattern.Key].Replace(rawLine, pattern.Value);
+        }
+        return rawLine;
     }
 
     /// <summary>
