@@ -3,21 +3,21 @@ using System.Threading.Channels;
 
 namespace LogStatTool;
 
-public class LogAggregator
+public class LogFilesAggregator
 {
     private readonly int _bulkReadSize;
     private readonly int _concurrency;
-    private readonly ILogLineHasher _hasher;
+    private readonly ILogLineProcessor<byte[]?> _hasher;
     private readonly int? _maxQueueSize;
 
     /// <summary>
-    /// Creates a LogAggregator for parallel log processing.
+    /// Creates a LogFilesAggregator for parallel log processing.
     /// </summary>
     /// <param name="hasher">The hasher used for normalizing and hashing lines.</param>
     /// <param name="concurrency">Number of parallel consumer tasks.</param>
     /// <param name="maxQueueSize">Optional maximum channel size for lines (for memory control); null => unbounded.</param>
     /// <param name="bulkReadSize">Number of lines to read in one chunk before pushing to the channel (e.g., 100 or 200).</param>
-    public LogAggregator(ILogLineHasher hasher, int concurrency, int? maxQueueSize = null, int bulkReadSize = 100)
+    public LogFilesAggregator(ILogLineProcessor<byte[]?> hasher, int concurrency, int? maxQueueSize = null, int bulkReadSize = 100)
     {
         if (concurrency <= 0)
             throw new ArgumentOutOfRangeException(nameof(concurrency), "Concurrency must be > 0");
@@ -126,7 +126,7 @@ public class LogAggregator
                 {
                     while (linesChannel.Reader.TryRead(out var line))
                     {
-                        var hashBytes = _hasher.ComputeLineHash(line);
+                        var hashBytes = _hasher.ProcessLine(line);
                         if (hashBytes == null)
                             continue;
 
@@ -146,18 +146,5 @@ public class LogAggregator
 
         // Return final dictionary
         return globalResults;
-    }
-}
-
-public record struct MatchCounts(string Representative, int Count)
-{
-    public static implicit operator (string Representative, int Count)(MatchCounts value)
-    {
-        return (value.Representative, value.Count);
-    }
-
-    public static implicit operator MatchCounts((string Representative, int Count) value)
-    {
-        return new MatchCounts(value.Representative, value.Count);
     }
 }

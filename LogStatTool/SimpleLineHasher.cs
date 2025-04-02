@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace LogStatTool;
 
-public class SimpleLineHasher : ILogLineHasher
+public class SimpleLineHasher : ILogLineProcessor<byte[]?>
 {
     private readonly LineOptimizationOptions _options;
     private readonly Dictionary<string, Regex> _compiledPatterns;
@@ -25,7 +25,7 @@ public class SimpleLineHasher : ILogLineHasher
     /// returning the hash as a byte array.
     /// Returns null if the line fails filtering.
     /// </summary>
-    public byte[]? ComputeLineHash(string rawLine)
+    public byte[]? ProcessLine(string rawLine)
     {
         if (string.IsNullOrEmpty(rawLine))
             return null;

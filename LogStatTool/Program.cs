@@ -28,13 +28,14 @@ internal class Program
                     {"O=.+,OU=.+,CN=.+,E=.+\\.com","<Certificate>"} ,
                 }
             };
-            ILogLineHasher hasher = new SimpleLineHasher(lineOptions);
+            ILogLineProcessor<byte[]?> hasher = new SimpleLineHasher(lineOptions);
 
-            // 2) Create LogAggregator
+            // 2) Create LogFilesAggregator
             //    concurrency: e.g. 4 parallel consumers
             //    maxQueueSize: e.g. 10,000 (or null for unbounded)
             //    bulkReadSize: read 200 lines at a time
-            var aggregator = new LogAggregator(hasher, concurrency: 4, maxQueueSize: 10_000, bulkReadSize: 200);
+            //var aggregator = new LogFilesAggregator(hasher, concurrency: 4, maxQueueSize: 10_000, bulkReadSize: 200);
+            var aggregator = new LogFilesAggregatorDataflow(hasher, concurrency: 4, bulkReadSize: 200);
 
             // 3) An optional progress reporter: track # of files processed
             int filesProcessed = 0;
