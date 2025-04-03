@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ClosedXML.Excel;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -130,7 +131,7 @@ public class HashAggregatorPipeline
             // d) If requested, save results to file
             if (string.IsNullOrWhiteSpace(_resultsFilePath) is false)
             {
-                await SaveResultsToFile();
+                SaveResultsToFile();
             }
 
             // e) If user wants to open the file
@@ -143,7 +144,7 @@ public class HashAggregatorPipeline
             //    we populate it now, then Complete it.
             if (_outputBlock != null)
             {
-                var finalOrdered = ProduceOrderedResults();
+                var finalOrdered = ProduceResults();
                 foreach (var item in finalOrdered)
                 {
                     // item is (string line, int count)
@@ -157,7 +158,7 @@ public class HashAggregatorPipeline
     }
 
     /// <summary>
-    /// Returns an in-memory list of (line, count), sorted descending by count (then by line).
+    /// Returns an in-memory data of (line, count), sorted descending by count (then by line).
     /// Will await the pipeline first if it isn't completed.
     /// </summary>
     public async Task<List<(string line, int count)>> GetOrderedResultsAsync()
@@ -166,7 +167,7 @@ public class HashAggregatorPipeline
             throw new InvalidOperationException("You must call BuildAndRunAsync() first.");
 
         await _runTask.ConfigureAwait(false);
-        return ProduceOrderedResults();
+        return ProduceResults();
     }
 
     /// <summary>
@@ -199,30 +200,61 @@ public class HashAggregatorPipeline
     // PRIVATE HELPER METHODS
     //-----------------------------------------------------------------------------------------
 
-    private List<(string line, int count)> ProduceOrderedResults()
+    private List<(string line, int count)> ProduceResults()
     {
-        // Convert dictionary to list, sort it
+        // Convert dictionary to data, sort it
         // _globalResults is (byte[] => (string, int))
         var list = _globalResults.Values
-            .OrderByDescending(x => x.Count)
-            .ThenBy(x => x.Representative) // or ThenByDescending if desired
+            //.OrderByDescending(x => x.Representative)
+            //.ThenByDescending(x => x.Count)
             .Select(x => (x.Representative, x.Count))
             .ToList();
 
         return list;
     }
 
-    private async Task SaveResultsToFile()
+    private void SaveResultsToFile()
     {
         // If user provided a custom path, use it; otherwise generate a unique one.
         //string filePath = _resultsFilePath ?? $"results-{Guid.NewGuid()}.txt";
 
-        var list = ProduceOrderedResults();
-        await File.WriteAllLinesAsync(_resultsFilePath, list.Select(x =>
-            JsonSerializer.Serialize(new { Line = x.line, Count = x.count })
-        ));
+        var data = ProduceResults();
+        //await File.WriteAllLinesAsync(_resultsFilePath, data.Select(x =>
+        //    JsonSerializer.Serialize(new { Line = x.line, Count = x.count })
+        //));
+        using var workbook = new XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("Report");
 
-        Console.WriteLine($"Results saved to: {_resultsFilePath}");
+        // Set headers
+        worksheet.Cell(1, 1).Value = "Representative Line";
+        worksheet.Cell(1, 2).Value = "Count";
+
+        // Freeze the first row
+        worksheet.SheetView.FreezeRows(1);
+
+        // Fill data
+        for (int i = 0; i < data.Count; i++)
+        {
+            worksheet.Cell(i + 2, 1).Value = data[i].line;
+            worksheet.Cell(i + 2, 2).Value = data[i].count;
+        }
+
+        // Set wrapping and max width for the "Representative Line" column
+        var col1 = worksheet.Column(1);
+        col1.Width = 100; // Set initial width
+        col1.Style.Alignment.WrapText = true;
+        if (col1.Width > 500) col1.Width = 500;
+
+        // Auto-adjust "Count" column
+        worksheet.Column(2).AdjustToContents();
+
+        // Optional: Make header bold
+        worksheet.Row(1).Style.Font.Bold = true;
+
+        // Save to file
+        workbook.SaveAs(_resultsFilePath);
+
+        Console.WriteLine($"Results saved to Excel file: {_resultsFilePath}");
     }
 
     private void OpenResultsFile()

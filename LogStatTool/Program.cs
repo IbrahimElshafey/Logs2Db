@@ -49,7 +49,7 @@ internal class Program
             hasher: hasher,
             concurrency: 4,
             bulkReadSize: 200,
-            resultsFilePath: $"results-{Guid.NewGuid()}.txt",
+            resultsFilePath: $"results-{Guid.NewGuid()}.xlsx",
             openResultFile: true
         );
 
@@ -63,10 +63,17 @@ internal class Program
 
         // If we want an in-memory sorted list:
         var sortedResults = await aggregator.GetOrderedResultsAsync();
+
+        var groupedLines = new SequentialGcpWithMinLengthGrouper().BuildLineGroups(sortedResults);
         Console.WriteLine($"Top 10 lines:");
-        foreach (var (line, count) in sortedResults.Take(10))
+        //print groups and sub items
+        foreach (var group in groupedLines.Where(x => x.OriginalLines.Count > 1))
         {
-            Console.WriteLine($"  {count,6}  | {line}");
+            Console.WriteLine($"Group: {group.RepresintiveLine}\t [{group.TotalCounts}]");
+            foreach (var item in group.OriginalLines)
+            {
+                Console.WriteLine($"  Item: {item.Representative} - {item.Count}");
+            }
         }
 
         // Or if we want to feed results into another Dataflow pipeline:
