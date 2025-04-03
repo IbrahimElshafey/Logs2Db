@@ -1,18 +1,23 @@
 ﻿namespace LogStatTool;
+using ClosedXML.Excel;
+
+using DocumentFormat.OpenXml.Spreadsheet;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 public class SequentialGcpWithMinLengthGrouper
 {
     private readonly int _minAcceptablePrefixLength;
+    private readonly bool _saveResult;
 
     /// <summary>
     /// Constructs a GCP grouper requiring that the final shared prefix never go below _minAcceptablePrefixLength.
     /// If the GCP is shorter, we finalize the current group and start a new one.
     /// </summary>
     /// <param name="minAcceptablePrefixLength">Minimum prefix length needed to keep lines in the same group.</param>
-    public SequentialGcpWithMinLengthGrouper(int minAcceptablePrefixLength = 40)
+    public SequentialGcpWithMinLengthGrouper(int minAcceptablePrefixLength = 40, bool saveResult = false)
     {
         if (minAcceptablePrefixLength <= 0)
             throw new ArgumentOutOfRangeException(
@@ -20,6 +25,7 @@ public class SequentialGcpWithMinLengthGrouper
                 "Minimum acceptable prefix length must be > 0.");
 
         _minAcceptablePrefixLength = minAcceptablePrefixLength;
+        _saveResult = saveResult;
     }
 
     /// <summary>
@@ -87,7 +93,66 @@ public class SequentialGcpWithMinLengthGrouper
             result.Add(finalGroup);
         }
 
+        if (_saveResult)
+        {
+            SaveResultToFile(result.Where(x => x.OriginalLines.Count > 1).OrderByDescending(x=>x.TotalCounts).ToList());
+        }
         return result;
+    }
+
+    private void SaveResultToFile(List<LinesGroup> groups)
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.Worksheets.Add("Grouped Lines");
+
+        int currentRow = 1;
+
+        foreach (var group in groups)
+        {
+            // Section header
+            sheet.Cell(currentRow, 1).Value = $"== {group.RepresintiveLine} (Total: {group.TotalCounts}) ==";
+            sheet.Range(currentRow, 1, currentRow, 2).Merge();
+            sheet.Row(currentRow).Style.Font.Bold = true;
+            sheet.Row(currentRow).Style.Fill.BackgroundColor = XLColor.LightGray;
+            currentRow++;
+
+            // Column headers
+            sheet.Cell(currentRow, 1).Value = "Representative Line";
+            sheet.Cell(currentRow, 2).Value = "Count";
+            sheet.Row(currentRow).Style.Font.Bold = true;
+            currentRow++;
+
+            // Data rows
+            foreach (var (rep, count) in group.OriginalLines)
+            {
+                sheet.Cell(currentRow, 1).Value = rep;
+                sheet.Cell(currentRow, 2).Value = count;
+                currentRow++;
+            }
+
+            // Blank line between groups
+            currentRow++;
+        }
+
+        // Wrap text in first column and limit width
+        var col1 = sheet.Column(1);
+        col1.Width = 100;
+        col1.Style.Alignment.WrapText = true;
+        if (col1.Width > 500) col1.Width = 500;
+
+        sheet.Column(2).AdjustToContents();
+
+        // Freeze first row (topmost group header)
+        sheet.SheetView.FreezeRows(1);
+
+        var filePath = $"GroupedLines_{Guid.NewGuid()}.xlsx";
+        workbook.SaveAs(filePath);
+
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = Path.GetFullPath(filePath),
+            UseShellExecute = true
+        });
     }
 
     /// <summary>

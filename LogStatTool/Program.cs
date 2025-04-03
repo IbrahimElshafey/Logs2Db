@@ -16,7 +16,9 @@ internal class Program
 
     private static async Task FindTopRepeatedLinesRefactored()
     {
-        var config = await LoadConfigurationAsync(@".\HashAggregatorConfigFiles\dsp.json");
+        //var config = await LoadConfigurationAsync(@".\HashAggregatorConfigFiles\DSP.json");
+        //var config = await LoadConfigurationAsync(@".\HashAggregatorConfigFiles\UDA.json");
+        var config = await LoadConfigurationAsync(@".\HashAggregatorConfigFiles\Driver.json");
 
         var logOptions = config.GetLogFilesOptions;
 
@@ -45,17 +47,8 @@ internal class Program
         // If we want an in-memory sorted list:
         var sortedResults = await aggregator.GetOrderedResultsAsync();
 
-        var groupedLines = new SequentialGcpWithMinLengthGrouper().BuildLineGroups(sortedResults);
-        Console.WriteLine($"Top 10 lines:");
-        //print groups and sub items
-        foreach (var group in groupedLines.Where(x => x.OriginalLines.Count > 1))
-        {
-            Console.WriteLine($"Group: {group.RepresintiveLine}\t [{group.TotalCounts}]");
-            foreach (var item in group.OriginalLines)
-            {
-                Console.WriteLine($"  Item: {item.Representative} - {item.Count}");
-            }
-        }
+        var groupedLines = new SequentialGcpWithMinLengthGrouper(saveResult: true).BuildLineGroups(sortedResults);
+        
 
         // Or if we want to feed results into another Dataflow pipeline:
         //   aggregator.GetResultsBlock() -> link to further transforms

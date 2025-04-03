@@ -1,0 +1,14 @@
+{
+  "GetLogFilesOptions": {
+    "LogFilesFolder": "V:\\EgateLogs\\Ameer-26032025-Logs\\Departure-2025-03-26\\Gate logs-Departure",
+    "SearchPattern": "GES-General-log-*.log",
+    "EnumerationOptions": {
+      "RecurseSubdirectories": true
+    }
+  },
+  "LineOptimizationOptions": {
+    "MaxLineLength": 20000,
+    "CheckPrefixFilterLength": 135,
+    "PrefixFilter": "\\[ERR\\]"
+  }
+}
