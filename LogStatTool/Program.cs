@@ -11,6 +11,80 @@ internal class Program
     public static async Task Main(string[] args)
     {
         //await FindTopRepeatedLines();
+        await FindTopRepeatedLinesRefactored();
+    }
+
+    private static async Task FindTopRepeatedLinesRefactored()
+    {
+        var logOptions = new GetLogFilesOptions
+        {
+            LogFilesFolder = @"V:\DSP-Logs\63 Logs",
+            SearchPattern = "*.*",
+            EnumerationOptions = new EnumerationOptions
+            {
+                RecurseSubdirectories = true
+            },
+            //Filter = f => f.Contains("\\dis\\", StringComparison.OrdinalIgnoreCase)
+        };
+
+        // Create a line hasher
+        ILogLineProcessor<byte[]?> hasher = new SimpleLineHasher(
+            new LineOptimizationOptions
+            {
+                MaxLineLength = 20000,
+                CheckPrefixFilterLength = 135,
+                PrefixFilter = "ERROR|WARN",
+                ReplacmentPatterns =
+                {
+                {"O=.+,OU=.+,CN=.+,E=.+\\.com","<Certificate>"},
+                {@"\s+\d+\s+\|.+\d+\s+\|",""}
+                }
+            }
+        );
+
+        // Create the aggregator pipeline. We'll auto-save results to file, 
+        // and open that file once complete.
+        var aggregator = new HashAggregatorPipeline(
+            logFilesOptions: logOptions,
+            hasher: hasher,
+            concurrency: 4,
+            bulkReadSize: 200,
+            resultsFilePath: $"results-{Guid.NewGuid()}.txt",
+            openResultFile: true
+        );
+
+        // Optionally track reading progress
+        var progress = new Progress<float>(p =>
+            Console.WriteLine($"Reading progress: {p:F2}%")
+        );
+
+        // Build and run pipeline
+        await aggregator.BuildAndRunAsync(progress);
+
+        // If we want an in-memory sorted list:
+        var sortedResults = await aggregator.GetOrderedResultsAsync();
+        Console.WriteLine($"Top 10 lines:");
+        foreach (var (line, count) in sortedResults.Take(10))
+        {
+            Console.WriteLine($"  {count,6}  | {line}");
+        }
+
+        // Or if we want to feed results into another Dataflow pipeline:
+        //   aggregator.GetResultsBlock() -> link to further transforms
+        // For example:
+        /*
+        var resultsBlock = aggregator.GetResultsBlock();
+        var nextBlock = new ActionBlock<(string line, int count)>(tuple =>
+        {
+            // e.g. do Jaccard similarity or other grouping
+        });
+        resultsBlock.LinkTo(nextBlock, new DataflowLinkOptions { PropagateCompletion = true });
+        // Wait for nextBlock to complete
+        await nextBlock.Completion;
+        */
+
+        Console.WriteLine("All done!");
+        Console.ReadLine();
     }
 
     public static async Task FindTopRepeatedLines()
