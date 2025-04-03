@@ -25,18 +25,19 @@ public class SimpleLineHasher : ILogLineProcessor<byte[]?>
     /// returning the hash as a byte array.
     /// Returns null if the line fails filtering.
     /// </summary>
-    public byte[]? ProcessLine(string rawLine)
+    public byte[]? ProcessLine(ref string rawLine)
     {
         if (string.IsNullOrEmpty(rawLine))
             return null;
 
-        rawLine = CheckReplacments(rawLine);
+      
         // Check the first CheckPrefixFilterLength characters for the PrefixFilter using ReadOnlySpan.
         int checkLen = Math.Min(_options.CheckPrefixFilterLength, rawLine.Length);
         ReadOnlySpan<char> firstPart = rawLine.AsSpan(0, checkLen);
         if (Regex.IsMatch(firstPart.ToString(), _options.PrefixFilter, RegexOptions.IgnoreCase) is false)
             return null;
 
+        rawLine = CheckReplacments(rawLine);
         // Truncate the line to MaxLineLength characters.
         if (rawLine.Length > _options.MaxLineLength)
             rawLine = rawLine.Substring(0, _options.MaxLineLength);

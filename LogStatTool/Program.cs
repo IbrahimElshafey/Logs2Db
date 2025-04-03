@@ -14,18 +14,19 @@ internal class Program
         try
         {
             // 4) Aggregate logs
-            string folderPath = @"V:\DSP-Logs\63 Logs";
-            var logFiles = Directory.GetFiles(folderPath, "*.*", SearchOption.AllDirectories);
+            //string folderPath = @"V:\DSP-Logs\63 Logs";
+            //var logFiles = Directory.GetFiles(folderPath, "*.*", SearchOption.AllDirectories);
             //logFiles = logFiles.Where(f => f.Contains("\\dis\\", StringComparison.OrdinalIgnoreCase)).ToArray();
             // 1) Create a line hasher (FNV-1a, for example)
             var lineOptions = new LineOptimizationOptions
             {
-                MaxLineLength = 500,
+                MaxLineLength = 20000,
                 CheckPrefixFilterLength = 135,
                 PrefixFilter = "ERROR|WARN",
                 ReplacmentPatterns =
                 {
                     {"O=.+,OU=.+,CN=.+,E=.+\\.com","<Certificate>"} ,
+                    {@"\s+\d+\s+\|.+\d+\s+\|",""} ,
                 }
             };
             ILogLineProcessor<byte[]?> hasher = new SimpleLineHasher(lineOptions);
@@ -38,18 +39,28 @@ internal class Program
             var aggregator = new LogFilesAggregatorDataflow(hasher, concurrency: 4, bulkReadSize: 200);
 
             // 3) An optional progress reporter: track # of files processed
-            int filesProcessed = 0;
-            var progress = new Progress<int>(increment =>
+            var progress = new Progress<float>(percentage =>
             {
-                filesProcessed += increment;
-                Console.WriteLine($"Finished reading one more file. Total files so far: {filesProcessed}/{logFiles.Length}");
+                Console.WriteLine($"Processing {percentage}% of files till now.");
             });
 
 
-            var results = await aggregator.AggregateLogFilesAsync(logFiles, progress);
+            var results = await aggregator.AggregateLogFilesAsync(
+                new GetLogFilesOptions
+                {
+                    LogFilesFolder = @"V:\DSP-Logs\63 Logs",
+                    SearchPattern = "*.*",
+                    EnumerationOptions = new EnumerationOptions
+                    {
+                        RecurseSubdirectories = true
+                    },
+                    //Filter = f => f.Contains("\\dis\\", StringComparison.OrdinalIgnoreCase)
+                }, progress);
 
             // 5) Show top 10 repeated patterns
-            var orderdList = results.OrderByDescending(kvp => kvp.Value.Count);
+            var orderdList = results
+                .OrderByDescending(kvp => kvp.Value.Count)
+                .ThenByDescending(kvp => kvp.Value.Representative);
 
             //create a new file to write the results
             string path = $"results-{Guid.NewGuid()}.txt";
@@ -57,7 +68,7 @@ internal class Program
             //open file in default editor
             //Process.Start("notepad.exe", path);
 
-            Console.WriteLine($"Done! Processed {filesProcessed} files in total.");
+            Console.WriteLine($"Done! All files are processed.");
             openResultProcess = Process.Start(new ProcessStartInfo
             {
                 FileName = Path.GetFullPath(path),

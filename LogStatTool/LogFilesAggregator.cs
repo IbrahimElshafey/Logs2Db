@@ -126,7 +126,7 @@ public class LogFilesAggregator
                 {
                     while (linesChannel.Reader.TryRead(out var line))
                     {
-                        var hashBytes = _hasher.ProcessLine(line);
+                        var hashBytes = _hasher.ProcessLine(ref line);
                         if (hashBytes == null)
                             continue;
 

@@ -2,6 +2,6 @@
 {
     public interface ILogLineProcessor<T>
     {
-        T ProcessLine(string rawLine);
+        T ProcessLine(ref string rawLine);
     }
 }
