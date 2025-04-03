@@ -10,6 +10,11 @@ internal class Program
 {
     public static async Task Main(string[] args)
     {
+        //await FindTopRepeatedLines();
+    }
+
+    public static async Task FindTopRepeatedLines()
+    {
         Process? openResultProcess = null;
         try
         {
@@ -81,7 +86,6 @@ internal class Program
             openResultProcess?.Dispose();
         }
     }
-
 }
 
 
