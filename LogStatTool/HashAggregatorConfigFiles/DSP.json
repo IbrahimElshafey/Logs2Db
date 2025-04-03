@@ -1,0 +1,18 @@
+{
+  "GetLogFilesOptions": {
+    "LogFilesFolder": "V:\\DSP-Logs\\63 Logs",
+    "SearchPattern": "*.*",
+    "EnumerationOptions": {
+      "RecurseSubdirectories": true
+    }
+  },
+  "LineOptimizationOptions": {
+    "MaxLineLength": 20000,
+    "CheckPrefixFilterLength": 135,
+    "PrefixFilter": "ERROR|WARN",
+    "ReplacmentPatterns": {
+      "O=.+,OU=.+,CN=.+,E=.+\\.com": "<Certificate>",
+      "\\s+\\d+\\s+\\|.+\\d+\\s+\\|": ""
+    }
+  }
+}

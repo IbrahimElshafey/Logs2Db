@@ -16,31 +16,12 @@ internal class Program
 
     private static async Task FindTopRepeatedLinesRefactored()
     {
-        var logOptions = new GetLogFilesOptions
-        {
-            LogFilesFolder = @"V:\DSP-Logs\63 Logs",
-            SearchPattern = "*.*",
-            EnumerationOptions = new EnumerationOptions
-            {
-                RecurseSubdirectories = true
-            },
-            //Filter = f => f.Contains("\\dis\\", StringComparison.OrdinalIgnoreCase)
-        };
+        var config = await LoadConfigurationAsync(@".\HashAggregatorConfigFiles\dsp.json");
+
+        var logOptions = config.GetLogFilesOptions;
 
         // Create a line hasher
-        ILogLineProcessor<byte[]?> hasher = new SimpleLineHasher(
-            new LineOptimizationOptions
-            {
-                MaxLineLength = 20000,
-                CheckPrefixFilterLength = 135,
-                PrefixFilter = "ERROR|WARN",
-                ReplacmentPatterns =
-                {
-                {"O=.+,OU=.+,CN=.+,E=.+\\.com","<Certificate>"},
-                {@"\s+\d+\s+\|.+\d+\s+\|",""}
-                }
-            }
-        );
+        ILogLineProcessor<byte[]?> hasher = new SimpleLineHasher(config.LineOptimizationOptions);
 
         // Create the aggregator pipeline. We'll auto-save results to file, 
         // and open that file once complete.
@@ -92,6 +73,19 @@ internal class Program
 
         Console.WriteLine("All done!");
         Console.ReadLine();
+    }
+
+    private static async Task<(GetLogFilesOptions GetLogFilesOptions, LineOptimizationOptions LineOptimizationOptions)> LoadConfigurationAsync(string filePath)
+    {
+        using var stream = File.OpenRead(filePath);
+        //read as JsonDocumnt
+        var jsonDoc = await JsonDocument.ParseAsync(stream);
+        //get GetLogFilesOptions as GetLogFilesOptions
+        var getLogFilesOptions = JsonSerializer.Deserialize<GetLogFilesOptions>(jsonDoc.RootElement.GetProperty("GetLogFilesOptions").GetRawText());
+        //get LineOptimizationOptions as LineOptimizationOptions
+        var lineOptimizationOptions = JsonSerializer.Deserialize<LineOptimizationOptions>(jsonDoc.RootElement.GetProperty("LineOptimizationOptions").GetRawText());
+        //return as tuple
+        return (getLogFilesOptions, lineOptimizationOptions);
     }
 
     public static async Task FindTopRepeatedLines()
