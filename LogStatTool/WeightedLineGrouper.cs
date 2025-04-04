@@ -1,11 +1,19 @@
 ﻿namespace LogStatTool;
+
+using LogStatTool.Base;
+using LogStatTool.Contracts;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 
-public class WeightedLineGrouper
+public class WeightedLineGrouper:ILinesGrouper
 {
+    double _weightThreshold;
+    public WeightedLineGrouper(double weightThreshold)
+    {
+        _weightThreshold = weightThreshold;
+    }
     /// <summary>
     /// Builds groups from a list of (Representative, Count) lines by:
     ///  1) Tokenizing each line.
@@ -19,8 +27,7 @@ public class WeightedLineGrouper
     /// <param name="lines">The aggregated lines, each with a text and a count of occurrences.</param>
     /// <param name="weightThreshold">Minimum weight needed for a token to remain in a line.</param>
     public List<LinesGroup> BuildLineGroups(
-        List<(string Representative, int Count)> lines,
-        double weightThreshold = 5.0)
+        List<(string Representative, int Count)> lines)
     {
         if (lines == null || lines.Count == 0)
         {
@@ -52,7 +59,7 @@ public class WeightedLineGrouper
             }
         }
 
-        // STEP 3) For each line, exclude tokens whose weight < weightThreshold
+        // STEP 3) For each line, exclude tokens whose weight < _weightThreshold
         // weight = tokenGlobalCount[t] + log(lineCount + 1)
         for (int i = 0; i < lineTokenData.Length; i++)
         {
@@ -64,7 +71,7 @@ public class WeightedLineGrouper
                 int sumOfCounts = tokenGlobalCount[t];
                 double weight = sumOfCounts + Math.Log(cnt + 1);
 
-                if (weight >= weightThreshold)
+                if (weight >= _weightThreshold)
                 {
                     finalTokens.Add(t);
                 }

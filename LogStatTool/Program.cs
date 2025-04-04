@@ -1,5 +1,7 @@
 ﻿// See https://aka.ms/new-console-template for more information
 using LogStatTool;
+using LogStatTool.Contracts;
+using LogStatTool.Old;
 using System;
 using System.Diagnostics;
 using System.Globalization;
@@ -23,15 +25,15 @@ internal class Program
         var logOptions = config.GetLogFilesOptions;
 
         // Create a line hasher
-        ILogLineProcessor<byte[]?> hasher = new SimpleLineHasher(config.LineOptimizationOptions);
+        LogStatTool.Base.ILogLineProcessor<ulong?> hasher = new SimpleLineHasher(config.LineOptimizationOptions);
 
         // Create the aggregator pipeline. We'll auto-save results to file, 
         // and open that file once complete.
         var aggregator = new HashAggregatorPipeline(
             logFilesOptions: logOptions,
             hasher: hasher,
-            concurrency: 4,
-            bulkReadSize: 200,
+            concurrency: 8,
+            bulkReadSize: 100,
             resultsFilePath: $"results-{Guid.NewGuid()}.xlsx",
             openResultFile: true
         );
@@ -102,7 +104,7 @@ internal class Program
                     {@"\s+\d+\s+\|.+\d+\s+\|",""} ,
                 }
             };
-            ILogLineProcessor<byte[]?> hasher = new SimpleLineHasher(lineOptions);
+            LogStatTool.Base.ILogLineProcessor<ulong?> hasher = new SimpleLineHasher(lineOptions);
 
             // 2) Create LogFilesAggregator
             //    concurrency: e.g. 4 parallel consumers

@@ -1,4 +1,6 @@
-﻿using System;
+﻿using LogStatTool.Contracts;
+using LogStatTool.Helpers;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -8,16 +10,16 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 
-namespace LogStatTool;
+namespace LogStatTool.Old;
 
 public class LogFilesAggregatorDataflow
 {
     private readonly int _bulkReadSize;
     private readonly int _concurrency;
-    private readonly ILogLineProcessor<byte[]?> _hasher;
+    private readonly Base.ILogLineProcessor<ulong?> _hasher;
 
     public LogFilesAggregatorDataflow(
-        ILogLineProcessor<byte[]?> hasher,
+        Base.ILogLineProcessor<ulong?> hasher,
         int concurrency,
         int bulkReadSize = 100)
     {
@@ -31,12 +33,12 @@ public class LogFilesAggregatorDataflow
             : throw new ArgumentOutOfRangeException(nameof(bulkReadSize));
     }
 
-    public async Task<IDictionary<byte[], MatchCounts>> AggregateLogFilesAsync(
+    public async Task<IDictionary<ulong?, MatchCounts>> AggregateLogFilesAsync(
         GetLogFilesOptions getLogsFileOptions,
         IProgress<float>? progress = null)
     {
         // Thread-safe dictionary for final results
-        var globalResults = new ConcurrentDictionary<byte[], MatchCounts>(new ByteArrayComparer());
+        var globalResults = new ConcurrentDictionary<ulong?, MatchCounts>();
 
         // ----------------------------------------------------------------
         // 1) Enumerate all matching files for counting only (first pass)
@@ -77,12 +79,13 @@ public class LogFilesAggregatorDataflow
         filePath => ReadFileByChunksAsync(filePath, progress, totalFilesCount),
         new ExecutionDataflowBlockOptions
         {
+            BoundedCapacity = 1000,
             MaxDegreeOfParallelism = _concurrency
         });
         // ----------------------------------------------------------------
         // BLOCK #3: TransformBlock => Hash each line
         // ----------------------------------------------------------------
-        var hashLinesBlock = new TransformBlock<string, (byte[]? Hash, string Line)>(
+        var hashLinesBlock = new TransformBlock<string, (ulong? Hash, string Line)>(
             line =>
             {
                 var hash = _hasher.ProcessLine(ref line);
@@ -90,13 +93,14 @@ public class LogFilesAggregatorDataflow
             },
             new ExecutionDataflowBlockOptions
             {
+                BoundedCapacity = 1000,
                 MaxDegreeOfParallelism = _concurrency
             });
 
         // ----------------------------------------------------------------
         // BLOCK #4: ActionBlock => Aggregate hashed lines
         // ----------------------------------------------------------------
-        var aggregateBlock = new ActionBlock<(byte[]? Hash, string Line)>(
+        var aggregateBlock = new ActionBlock<(ulong? Hash, string Line)>(
             hashed =>
             {
                 if (hashed.Hash != null)
@@ -109,6 +113,7 @@ public class LogFilesAggregatorDataflow
             },
             new ExecutionDataflowBlockOptions
             {
+                BoundedCapacity = 1000,
                 MaxDegreeOfParallelism = _concurrency
             });
 
@@ -198,7 +203,7 @@ public class LogFilesAggregatorDataflow
     private void ReportProgress(IProgress<float>? progress, int totalFiles)
     {
         int sent = Interlocked.Increment(ref filesSentSoFar);
-        var percent = ((sent / (double)totalFiles) * 100.0);
+        var percent = sent / (double)totalFiles * 100.0;
         progress?.Report((float)percent);
     }
 }

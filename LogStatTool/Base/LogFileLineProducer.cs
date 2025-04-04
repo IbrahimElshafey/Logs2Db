@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 
-namespace LogStatTool;
+namespace LogStatTool.Base;
 
 public class LogFileLineProducer
 {
@@ -52,7 +52,7 @@ public class LogFileLineProducer
         // A. BufferBlock => file paths
         var filePathsBlock = new BufferBlock<string>(new DataflowBlockOptions
         {
-            BoundedCapacity = DataflowBlockOptions.Unbounded
+            BoundedCapacity = 10,
         });
 
         // B. TransformManyBlock => read lines from each file in parallel
@@ -61,7 +61,9 @@ public class LogFileLineProducer
             new ExecutionDataflowBlockOptions
             {
                 MaxDegreeOfParallelism = _concurrency,
-                BoundedCapacity = DataflowBlockOptions.Unbounded
+                //BoundedCapacity = _bulkReadSize / _concurrency,
+                BoundedCapacity = 5,
+                //MaxMessagesPerTask = 2,
             });
 
         // 2) Link them
@@ -120,8 +122,7 @@ public class LogFileLineProducer
             filePaths = filePaths.Where(_options.Filter);
         }
 
-        var listOfPaths = filePaths.ToList();
-        if (listOfPaths.Count == 0)
+        if (filePaths.Count() == 0)
         {
             Console.WriteLine("No files found to process.");
             FilePathsBlock.Complete();
@@ -129,7 +130,7 @@ public class LogFileLineProducer
         }
 
         // Post each file path
-        foreach (var path in listOfPaths)
+        foreach (var path in filePaths)
         {
             cancellationToken.ThrowIfCancellationRequested();
             await FilePathsBlock.SendAsync(path, cancellationToken)
@@ -215,7 +216,7 @@ public class LogFileLineProducer
         }
 
         var soFar = Interlocked.Increment(ref _filesProcessedSoFar);
-        float percent = (soFar / (float)_totalFilesCount) * 100f;
+        float percent = soFar / (float)_totalFilesCount * 100f;
         progress?.Report(percent);
     }
 }

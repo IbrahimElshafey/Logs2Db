@@ -1,4 +1,6 @@
 ﻿using ClosedXML.Excel;
+using LogStatTool.Base;
+using LogStatTool.Helpers;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -15,7 +17,7 @@ namespace LogStatTool;
 public class HashAggregatorPipeline
 {
     private readonly GetLogFilesOptions _logFilesOptions;
-    private readonly ILogLineProcessor<byte[]?> _hasher;
+    private readonly Base.ILogLineProcessor<ulong?> _hasher;
     private readonly int _concurrency;
     private readonly int _bulkReadSize;
 
@@ -24,8 +26,8 @@ public class HashAggregatorPipeline
     private readonly string? _resultsFilePath; // if null, we'll generate a unique filename
 
     // Holds (hash => (representative line, count))
-    private readonly ConcurrentDictionary<byte[], (string Representative, int Count)> _globalResults
-        = new ConcurrentDictionary<byte[], (string, int)>(new ByteArrayComparer());
+    private readonly ConcurrentDictionary<ulong?, (string Representative, int Count)> _globalResults
+        = new ConcurrentDictionary<ulong?, (string, int)>();
 
     // We'll store the overall pipeline's final Task, so we know when it's done.
     private Task? _runTask;
@@ -35,7 +37,7 @@ public class HashAggregatorPipeline
 
     public HashAggregatorPipeline(
         GetLogFilesOptions logFilesOptions,
-        ILogLineProcessor<byte[]?> hasher,
+        Base.ILogLineProcessor<ulong?> hasher,
         int concurrency,
         int bulkReadSize,
         string? resultsFilePath = null,
@@ -73,61 +75,52 @@ public class HashAggregatorPipeline
         }
 
         // 1) Set up the file-reading pipeline internally
-        var producer = new LogFileLineProducer(
+        var logLinesProducer = new LogFileLineProducer(
             options: _logFilesOptions,
             concurrency: _concurrency,
             bulkReadSize: _bulkReadSize
         );
 
         // The source block that emits lines
-        var sourceBlock = producer.Build(progress, cancellationToken);
+        var linesBlock = logLinesProducer.Build(progress, cancellationToken);
 
         // 2) Create a TransformBlock to hash each line
-        var hashLinesBlock = new TransformBlock<string, (byte[]? Hash, string Line)>(
+        var hashLinesBlock = new TransformBlock<string, ulong?>(
             line =>
             {
                 var hash = _hasher.ProcessLine(ref line);
-                return (hash, line);
-            },
-            new ExecutionDataflowBlockOptions
-            {
-                MaxDegreeOfParallelism = _concurrency
-            });
-
-        // 3) Create an ActionBlock to accumulate results in _globalResults
-        var aggregateBlock = new ActionBlock<(byte[]? Hash, string Line)>(
-            hashed =>
-            {
-                if (hashed.Hash != null)
+                if (hash != null)
                 {
                     _globalResults.AddOrUpdate(
-                        hashed.Hash,
-                        _ => (hashed.Line, 1),
+                        hash,
+                        _ => (line, 1),
                         (_, oldVal) => (oldVal.Representative, oldVal.Count + 1)
                     );
                 }
+
+                return hash;
             },
             new ExecutionDataflowBlockOptions
             {
+                //BoundedCapacity = 1000,
+                BoundedCapacity = -1,
                 MaxDegreeOfParallelism = _concurrency
             });
 
+
         // 4) Link them: source -> hash -> aggregate
-        sourceBlock.LinkTo(hashLinesBlock, new DataflowLinkOptions { PropagateCompletion = true });
-        hashLinesBlock.LinkTo(aggregateBlock, new DataflowLinkOptions { PropagateCompletion = true });
+        linesBlock.LinkTo(hashLinesBlock, new DataflowLinkOptions { PropagateCompletion = true });
+        //hashLinesBlock.LinkTo(aggregateBlock, new DataflowLinkOptions { PropagateCompletion = true });
 
         // 5) We define the overall run task
         _runTask = Task.Run(async () =>
         {
             // a) Start enumerating file paths => triggers line emission
-            await producer.PostAllFilePathsAsync(cancellationToken);
+            await logLinesProducer.PostAllFilePathsAsync(cancellationToken);
 
             // b) Wait for the reading pipeline to finish
-            await producer.Completion.ConfigureAwait(false);
-
-            // c) Wait for aggregator to finish
-            await aggregateBlock.Completion.ConfigureAwait(false);
-
+            await logLinesProducer.Completion.ConfigureAwait(false);
+            //await hashLinesBlock.Completion.ConfigureAwait(false);
             // d) If requested, save results to file
             if (string.IsNullOrWhiteSpace(_resultsFilePath) is false)
             {
@@ -151,6 +144,9 @@ public class HashAggregatorPipeline
                     _outputBlock.Post(item);
                 }
                 _outputBlock.Complete();
+                //free all resources
+                _outputBlock = null;
+                _globalResults.Clear();
             }
         }, cancellationToken);
 
@@ -203,7 +199,7 @@ public class HashAggregatorPipeline
     private List<(string line, int count)> ProduceResults()
     {
         // Convert dictionary to data, sort it
-        // _globalResults is (byte[] => (string, int))
+        // _globalResults is (ulong => (string, int))
         var list = _globalResults.Values
             //.OrderByDescending(x => x.Representative)
             //.ThenByDescending(x => x.Count)
@@ -215,6 +211,7 @@ public class HashAggregatorPipeline
 
     private void SaveResultsToFile()
     {
+        Console.WriteLine("Start to save results to Excel sheet.");
         // If user provided a custom path, use it; otherwise generate a unique one.
         //string filePath = _resultsFilePath ?? $"results-{Guid.NewGuid()}.txt";
 

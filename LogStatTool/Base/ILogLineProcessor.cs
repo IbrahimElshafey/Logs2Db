@@ -1,4 +1,6 @@
-﻿namespace LogStatTool
+﻿using LogStatTool;
+
+namespace LogStatTool.Base
 {
     public interface ILogLineProcessor<T>
     {

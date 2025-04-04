@@ -1,4 +1,4 @@
-﻿namespace LogStatTool
+﻿namespace LogStatTool.Helpers
 {
     public class ByteArrayComparer : IEqualityComparer<byte[]>
     {

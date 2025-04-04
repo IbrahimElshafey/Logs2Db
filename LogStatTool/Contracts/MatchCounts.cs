@@ -1,4 +1,4 @@
-﻿namespace LogStatTool;
+﻿namespace LogStatTool.Contracts;
 
 public record struct MatchCounts(string Representative, int Count)
 {

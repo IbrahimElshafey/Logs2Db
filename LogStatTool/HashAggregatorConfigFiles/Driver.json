@@ -7,8 +7,11 @@
     }
   },
   "LineOptimizationOptions": {
-    "MaxLineLength": 20000,
+    "MaxLineLength": 1000,
     "CheckPrefixFilterLength": 135,
-    "PrefixFilter": "\\[ERR\\]"
+    "PrefixFilter": "\\[ERR\\]",
+    "ReplacmentPatterns": {
+      "(.+)(\\[ERR)": "$2"
+    }
   }
 }

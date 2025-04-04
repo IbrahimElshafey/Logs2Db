@@ -1,13 +1,15 @@
-﻿using System.Collections.Concurrent;
+﻿using LogStatTool.Contracts;
+using LogStatTool.Helpers;
+using System.Collections.Concurrent;
 using System.Threading.Channels;
 
-namespace LogStatTool;
+namespace LogStatTool.Old;
 
 public class LogFilesAggregator
 {
     private readonly int _bulkReadSize;
     private readonly int _concurrency;
-    private readonly ILogLineProcessor<byte[]?> _hasher;
+    private readonly Base.ILogLineProcessor<byte[]?> _hasher;
     private readonly int? _maxQueueSize;
 
     /// <summary>
@@ -17,7 +19,7 @@ public class LogFilesAggregator
     /// <param name="concurrency">Number of parallel consumer tasks.</param>
     /// <param name="maxQueueSize">Optional maximum channel size for lines (for memory control); null => unbounded.</param>
     /// <param name="bulkReadSize">Number of lines to read in one chunk before pushing to the channel (e.g., 100 or 200).</param>
-    public LogFilesAggregator(ILogLineProcessor<byte[]?> hasher, int concurrency, int? maxQueueSize = null, int bulkReadSize = 100)
+    public LogFilesAggregator(Base.ILogLineProcessor<byte[]?> hasher, int concurrency, int? maxQueueSize = null, int bulkReadSize = 100)
     {
         if (concurrency <= 0)
             throw new ArgumentOutOfRangeException(nameof(concurrency), "Concurrency must be > 0");

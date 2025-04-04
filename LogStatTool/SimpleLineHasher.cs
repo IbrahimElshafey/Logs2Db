@@ -1,9 +1,10 @@
-﻿using System.Runtime.CompilerServices;
+﻿using LogStatTool.Contracts;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
 namespace LogStatTool;
 
-public class SimpleLineHasher : ILogLineProcessor<byte[]?>
+public class SimpleLineHasher : Base.ILogLineProcessor<ulong?>
 {
     private readonly LineOptimizationOptions _options;
     private readonly Dictionary<string, Regex> _compiledPatterns;
@@ -25,7 +26,7 @@ public class SimpleLineHasher : ILogLineProcessor<byte[]?>
     /// returning the hash as a byte array.
     /// Returns null if the line fails filtering.
     /// </summary>
-    public byte[]? ProcessLine(ref string rawLine)
+    public ulong? ProcessLine(ref string rawLine)
     {
         if (string.IsNullOrEmpty(rawLine))
             return null;
@@ -43,7 +44,7 @@ public class SimpleLineHasher : ILogLineProcessor<byte[]?>
             rawLine = rawLine.Substring(0, _options.MaxLineLength);
 
         ulong hash = ComputeFNV1aHashOnTheFly(rawLine.AsSpan());
-        return BitConverter.GetBytes(hash);
+        return hash;
     }
 
     private string CheckReplacments(string rawLine)
