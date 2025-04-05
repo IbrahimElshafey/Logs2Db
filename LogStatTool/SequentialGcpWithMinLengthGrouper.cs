@@ -12,13 +12,17 @@
     {
         private readonly int _minAcceptablePrefixLength;
         private readonly bool _saveResult;
+        private readonly string _resultsFilePath;
 
         /// <summary>
         /// Constructs a GCP grouper requiring that the final shared prefix never go below _minAcceptablePrefixLength.
         /// If the GCP is shorter, we finalize the current group and start a new one.
         /// </summary>
         /// <param name="minAcceptablePrefixLength">Minimum prefix length needed to keep lines in the same group.</param>
-        public SequentialGcpWithMinLengthGrouper(int minAcceptablePrefixLength = 40, bool saveResult = false)
+        public SequentialGcpWithMinLengthGrouper(
+            int minAcceptablePrefixLength = 40,
+            bool saveResult = false,
+            string resultsFilePath = null)
         {
             if (minAcceptablePrefixLength <= 0)
                 throw new ArgumentOutOfRangeException(
@@ -27,6 +31,7 @@
 
             _minAcceptablePrefixLength = minAcceptablePrefixLength;
             _saveResult = saveResult;
+            _resultsFilePath = resultsFilePath;
         }
 
         /// <summary>
@@ -146,7 +151,9 @@
             // Freeze first row (topmost group header)
             sheet.SheetView.FreezeRows(1);
 
-            var filePath = $"GroupedLines_{Guid.NewGuid()}.xlsx";
+            var filePath = string.IsNullOrWhiteSpace(_resultsFilePath) ?
+                $"GroupedLines_{Guid.NewGuid()}.xlsx" :
+                _resultsFilePath;
             workbook.SaveAs(filePath);
 
             Process.Start(new ProcessStartInfo

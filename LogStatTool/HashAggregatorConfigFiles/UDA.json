@@ -1,10 +1,16 @@
 {
-  "GetLogFilesOptions": {
-    "LogFilesFolder": "V:\\EgateLogs\\Ameer-26032025-Logs\\Departure-2025-03-26\\Gate logs-Departure",
-    "SearchPattern": "UDA_GeneralLogs-*.json",
-    "EnumerationOptions": {
-      "RecurseSubdirectories": true
-    }
+  "HashAggregatorOptions": {
+    "LogFilesOptions": {
+      "LogFilesFolder": "V:\\EgateLogs\\Ameer-26032025-Logs\\Departure-2025-03-26\\Gate logs-Departure",
+      "SearchPattern": "UDA_GeneralLogs-*.json",
+      "EnumerationOptions": {
+        "RecurseSubdirectories": true
+      }
+    },
+    "Concurrency": 8,
+    "BulkReadLinesSize": 50,
+    "ResultsFilePath": "UDA-LogStatTool-Results.xlsx",
+    "OpenResultFile": true
   },
   "LineOptimizationOptions": {
     "MaxLineLength": 20000,

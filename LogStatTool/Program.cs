@@ -18,25 +18,28 @@ internal class Program
 
     private static async Task FindTopRepeatedLinesRefactored()
     {
-        //var config = await LoadConfigurationAsync(@".\HashAggregatorConfigFiles\DSP.json");
+        var config = await LoadConfigurationAsync(@".\HashAggregatorConfigFiles\DSP.json");
         //var config = await LoadConfigurationAsync(@".\HashAggregatorConfigFiles\UDA.json");
-        var config = await LoadConfigurationAsync(@".\HashAggregatorConfigFiles\Driver.json");
+        //var config = await LoadConfigurationAsync(@".\HashAggregatorConfigFiles\Driver.json");
 
-        var logOptions = config.GetLogFilesOptions;
+
 
         // Create a line hasher
         LogStatTool.Base.ILogLineProcessor<ulong?> hasher = new SimpleLineHasher(config.LineOptimizationOptions);
-
+        config.HashAggregatorOptions.Hasher = hasher;
+        //append date to file name use change extension to remove the extension
+        config.HashAggregatorOptions.ResultsFilePath = Path.ChangeExtension(config.HashAggregatorOptions.ResultsFilePath, null) + "-" + DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + ".xlsx";
         // Create the aggregator pipeline. We'll auto-save results to file, 
         // and open that file once complete.
-        var aggregator = new HashAggregatorPipeline(
+        var aggregator = new HashAggregatorPipeline(config.HashAggregatorOptions);
+        /*
             logFilesOptions: logOptions,
             hasher: hasher,
             concurrency: 8,
             bulkReadSize: 100,
             resultsFilePath: $"results-{Guid.NewGuid()}.xlsx",
             openResultFile: true
-        );
+        */
 
         // Optionally track reading progress
         var progress = new Progress<float>(p =>
@@ -49,8 +52,11 @@ internal class Program
         // If we want an in-memory sorted list:
         var sortedResults = await aggregator.GetOrderedResultsAsync();
 
-        var groupedLines = new SequentialGcpWithMinLengthGrouper(saveResult: true).BuildLineGroups(sortedResults);
-        
+        var groupFile = Path.ChangeExtension(config.HashAggregatorOptions.ResultsFilePath, null) + "-Groups.xlsx";
+        var groupedLines = new SequentialGcpWithMinLengthGrouper(
+            resultsFilePath: groupFile,
+            saveResult: true).BuildLineGroups(sortedResults);
+
 
         // Or if we want to feed results into another Dataflow pipeline:
         //   aggregator.GetResultsBlock() -> link to further transforms
@@ -70,13 +76,13 @@ internal class Program
         Console.ReadLine();
     }
 
-    private static async Task<(GetLogFilesOptions GetLogFilesOptions, LineOptimizationOptions LineOptimizationOptions)> LoadConfigurationAsync(string filePath)
+    private static async Task<(HashAggregatorOptions HashAggregatorOptions, LineOptimizationOptions LineOptimizationOptions)> LoadConfigurationAsync(string filePath)
     {
         using var stream = File.OpenRead(filePath);
         //read as JsonDocumnt
         var jsonDoc = await JsonDocument.ParseAsync(stream);
         //get GetLogFilesOptions as GetLogFilesOptions
-        var getLogFilesOptions = JsonSerializer.Deserialize<GetLogFilesOptions>(jsonDoc.RootElement.GetProperty("GetLogFilesOptions").GetRawText());
+        var getLogFilesOptions = JsonSerializer.Deserialize<HashAggregatorOptions>(jsonDoc.RootElement.GetProperty("HashAggregatorOptions").GetRawText());
         //get LineOptimizationOptions as LineOptimizationOptions
         var lineOptimizationOptions = JsonSerializer.Deserialize<LineOptimizationOptions>(jsonDoc.RootElement.GetProperty("LineOptimizationOptions").GetRawText());
         //return as tuple

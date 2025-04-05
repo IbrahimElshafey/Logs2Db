@@ -1,10 +1,16 @@
 {
-  "GetLogFilesOptions": {
-    "LogFilesFolder": "V:\\DSP-Logs\\63 Logs",
-    "SearchPattern": "*.*",
-    "EnumerationOptions": {
-      "RecurseSubdirectories": true
-    }
+  "HashAggregatorOptions": {
+    "LogFilesOptions": {
+      "LogFilesFolder": "V:\\DSP-Logs\\63 Logs",
+      "SearchPattern": "*.*",
+      "EnumerationOptions": {
+        "RecurseSubdirectories": true
+      }
+    },
+    "Concurrency": 8,
+    "BulkReadLinesSize": 50,
+    "ResultsFilePath": "DSP-LogStatTool-Results.xlsx",
+    "OpenResultFile": true
   },
   "LineOptimizationOptions": {
     "MaxLineLength": 20000,

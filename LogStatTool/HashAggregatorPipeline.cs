@@ -35,14 +35,15 @@ public class HashAggregatorPipeline
     // This block will emit final results if the user wants them as a dataflow block
     private BufferBlock<(string line, int count)>? _outputBlock;
 
-    public HashAggregatorPipeline(
-        GetLogFilesOptions logFilesOptions,
-        Base.ILogLineProcessor<ulong?> hasher,
-        int concurrency,
-        int bulkReadSize,
-        string? resultsFilePath = null,
-        bool openResultFile = false)
+    public HashAggregatorPipeline(HashAggregatorOptions options)
     {
+        GetLogFilesOptions logFilesOptions = options.LogFilesOptions;
+        Base.ILogLineProcessor<ulong?> hasher = options.Hasher;
+        int concurrency = options.Concurrency;
+        int bulkReadSize = options.BulkReadLinesSize;
+        string? resultsFilePath = options.ResultsFilePath;
+        bool openResultFile = options.OpenResultFile;
+
         _logFilesOptions = logFilesOptions ?? throw new ArgumentNullException(nameof(logFilesOptions));
         _hasher = hasher ?? throw new ArgumentNullException(nameof(hasher));
 

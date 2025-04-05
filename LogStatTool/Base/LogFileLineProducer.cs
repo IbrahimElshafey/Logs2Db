@@ -62,7 +62,7 @@ public class LogFileLineProducer
             {
                 MaxDegreeOfParallelism = _concurrency,
                 //BoundedCapacity = _bulkReadSize / _concurrency,
-                BoundedCapacity = 5,
+                BoundedCapacity = _bulkReadSize / (_concurrency * 4),
                 //MaxMessagesPerTask = 2,
             });
 
