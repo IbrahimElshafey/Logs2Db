@@ -1,0 +1,24 @@
+{
+  "HashAggregatorOptions": {
+    "LogFilesOptions": {
+      "LogFilesFolder": "V:\\EgateLogs\\Ameer-26032025-Logs\\Departure-2025-03-26\\MonitoringStationDeparture _Logs\\",
+      "SearchPattern": "log-*.log",
+      "PathFilter": "\\FastABC.BES\\General",
+      "EnumerationOptions": {
+        "RecurseSubdirectories": true
+      }
+    },
+    "Concurrency": 8,
+    "BulkReadLinesSize": 10,
+    "ResultsFilePath": "BES-LogStatTool-Results.xlsx",
+    "OpenResultFile": true
+  },
+  "LineOptimizationOptions": {
+    "MaxLineLength": 1000,
+    "CheckPrefixFilterLength": 135,
+    "PrefixFilter": "\\[ERR\\]",
+    "ReplacmentPatterns": {
+      "(.+)(\\[ERR)": "$2"
+    }
+  }
+}

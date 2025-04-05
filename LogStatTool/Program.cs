@@ -18,9 +18,16 @@ internal class Program
 
     private static async Task FindTopRepeatedLinesRefactored()
     {
-        var config = await LoadConfigurationAsync(@".\HashAggregatorConfigFiles\DSP.json");
-        //var config = await LoadConfigurationAsync(@".\HashAggregatorConfigFiles\UDA.json");
-        //var config = await LoadConfigurationAsync(@".\HashAggregatorConfigFiles\Driver.json");
+       
+        Dictionary<int,string> configFiles = new()
+        {
+            { 1, "DSP" },
+            { 2, "UDA" },
+            { 3, "Driver" },
+            { 4, "BES" },
+            { 5, "DIS" },
+        };
+        var config = await LoadConfigurationAsync(@$".\HashAggregatorConfigFiles\{configFiles[5]}.json");
 
 
 
@@ -55,7 +62,9 @@ internal class Program
         var groupFile = Path.ChangeExtension(config.HashAggregatorOptions.ResultsFilePath, null) + "-Groups.xlsx";
         var groupedLines = new SequentialGcpWithMinLengthGrouper(
             resultsFilePath: groupFile,
-            saveResult: true).BuildLineGroups(sortedResults);
+            saveResult: true,
+            groupPredicate: x => x.OriginalLines.Count > 0)
+            .BuildLineGroups(sortedResults);
 
 
         // Or if we want to feed results into another Dataflow pipeline:
@@ -135,7 +144,7 @@ internal class Program
                     {
                         RecurseSubdirectories = true
                     },
-                    //Filter = f => f.Contains("\\dis\\", StringComparison.OrdinalIgnoreCase)
+                    //PathFilter = f => f.Contains("\\dis\\", StringComparison.OrdinalIgnoreCase)
                 }, progress);
 
             // 5) Show top 10 repeated patterns

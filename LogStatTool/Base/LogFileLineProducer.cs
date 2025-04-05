@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
@@ -62,7 +63,7 @@ public class LogFileLineProducer
             {
                 MaxDegreeOfParallelism = _concurrency,
                 //BoundedCapacity = _bulkReadSize / _concurrency,
-                BoundedCapacity = _bulkReadSize / (_concurrency * 4),
+                BoundedCapacity = 5,
                 //MaxMessagesPerTask = 2,
             });
 
@@ -117,21 +118,28 @@ public class LogFileLineProducer
             _options.SearchPattern,
             _options.EnumerationOptions);
 
-        if (_options.Filter != null)
+        if (_options.PathFilter != null)
         {
-            filePaths = filePaths.Where(_options.Filter);
+            filePaths = filePaths.Where(x => x.Contains(_options.PathFilter, StringComparison.OrdinalIgnoreCase));
         }
 
-        if (filePaths.Count() == 0)
+        var filesCount = filePaths.Count();
+        if (filesCount == 0)
         {
             Console.WriteLine("No files found to process.");
             FilePathsBlock.Complete();
             return;
         }
+        else
+        {
+            _totalFilesCount = filesCount;
+            Console.WriteLine($"Start processing [{filesCount}] file");
+        }
 
         // Post each file path
         foreach (var path in filePaths)
         {
+            //Console.WriteLine(path);
             cancellationToken.ThrowIfCancellationRequested();
             await FilePathsBlock.SendAsync(path, cancellationToken)
                                 .ConfigureAwait(false);
@@ -196,24 +204,7 @@ public class LogFileLineProducer
             linesBuffer.Clear();
         }
 
-        // Once done with this file, update progress
-        // Because TransformManyBlock reads each file, 
-        // we can only figure out total files if we keep track. 
-        // But we need that total from outside. 
-        // We'll do a lazy "once" approach:
-        if (_totalFilesCount == 0)
-        {
-            // Optional: if you want progress to be 0-based, 
-            // do that in PostAllFilePathsAsync.
-            // E.g. store the count of enumerated files there 
-            // and pass it in somehow.
-            // Here we'll just do a quick fix:
-            _totalFilesCount = Directory.EnumerateFiles(
-                _options.LogFilesFolder,
-                _options.SearchPattern,
-                _options.EnumerationOptions
-            ).Count();
-        }
+      
 
         var soFar = Interlocked.Increment(ref _filesProcessedSoFar);
         float percent = soFar / (float)_totalFilesCount * 100f;

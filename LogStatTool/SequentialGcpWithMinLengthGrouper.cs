@@ -13,6 +13,7 @@
         private readonly int _minAcceptablePrefixLength;
         private readonly bool _saveResult;
         private readonly string _resultsFilePath;
+        private readonly Func<LinesGroup, bool>? _groupPredicate;
 
         /// <summary>
         /// Constructs a GCP grouper requiring that the final shared prefix never go below _minAcceptablePrefixLength.
@@ -22,7 +23,8 @@
         public SequentialGcpWithMinLengthGrouper(
             int minAcceptablePrefixLength = 40,
             bool saveResult = false,
-            string resultsFilePath = null)
+            string resultsFilePath = null,
+            Func<LinesGroup, bool> groupPredicate = null)
         {
             if (minAcceptablePrefixLength <= 0)
                 throw new ArgumentOutOfRangeException(
@@ -32,6 +34,7 @@
             _minAcceptablePrefixLength = minAcceptablePrefixLength;
             _saveResult = saveResult;
             _resultsFilePath = resultsFilePath;
+            _groupPredicate = groupPredicate ?? (group => group.OriginalLines.Count > 2);
         }
 
         /// <summary>
@@ -101,7 +104,7 @@
 
             if (_saveResult)
             {
-                SaveResultToFile(result.Where(x => x.OriginalLines.Count > 1).OrderByDescending(x => x.TotalCounts).ToList());
+                SaveResultToFile(result.Where(_groupPredicate).OrderByDescending(x => x.TotalCounts).ToList());
             }
             return result;
         }

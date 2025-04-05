@@ -1,4 +1,5 @@
-﻿using LogStatTool.Contracts;
+﻿using DocumentFormat.OpenXml.Wordprocessing;
+using LogStatTool.Contracts;
 using LogStatTool.Helpers;
 using System;
 using System.Collections.Concurrent;
@@ -6,6 +7,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
@@ -48,9 +50,9 @@ public class LogFilesAggregatorDataflow
             getLogsFileOptions.SearchPattern,
             getLogsFileOptions.EnumerationOptions);
 
-        if (getLogsFileOptions.Filter != null)
+        if (getLogsFileOptions.PathFilter != null)
         {
-            filePaths = filePaths.Where(getLogsFileOptions.Filter);
+            filePaths = filePaths.Where(x => x.Contains(getLogsFileOptions.PathFilter, StringComparison.OrdinalIgnoreCase));
         }
 
         // Count how many files we have in total (no .ToList())
