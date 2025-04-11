@@ -9,4 +9,5 @@ public class HashAggregatorOptions
     public string ResultsFilePath { get; set; } = $"results-{Guid.NewGuid()}.xlsx";
     public bool OpenResultFile { get; set; } = true;
     public ILogLineProcessor<ulong?> Hasher { get; set; }
+    public bool ResultFilePerFolder { get; set; } = false;
 }

@@ -63,7 +63,7 @@ public class LogFileLineProducer
             {
                 MaxDegreeOfParallelism = _concurrency,
                 //BoundedCapacity = _bulkReadSize / _concurrency,
-                BoundedCapacity = 5,
+                BoundedCapacity = 10,//maximum files to read in parallel
                 //MaxMessagesPerTask = 2,
             });
 
@@ -74,7 +74,7 @@ public class LogFileLineProducer
 
         // 3) Return readFileBlock as the “source” block 
         // that downstream can link from:
-        SourceBlock = readFileBlock;
+        LinesBlock = readFileBlock;
         FilePathsBlock = filePathsBlock;
 
         return readFileBlock;
@@ -90,14 +90,14 @@ public class LogFileLineProducer
     /// <summary>
     /// The “root” source block that emits strings (log lines).
     /// </summary>
-    public ISourceBlock<string>? SourceBlock { get; private set; }
+    public ISourceBlock<string>? LinesBlock { get; private set; }
 
     /// <summary>
     /// We expose a Task you can await to know when the reading pipeline completes.
     /// Usually, you'll call <see cref="FilePathsBlock.Complete()"/> after 
     /// posting all paths, and then await this property.
     /// </summary>
-    public Task Completion => SourceBlock?.Completion ?? Task.CompletedTask;
+    public Task Completion => LinesBlock?.Completion ?? Task.CompletedTask;
 
     /// <summary>
     /// Actually enumerates files from the folder/pattern,
@@ -133,7 +133,7 @@ public class LogFileLineProducer
         else
         {
             _totalFilesCount = filesCount;
-            Console.WriteLine($"Start processing [{filesCount}] file");
+            Console.WriteLine($"Start processing [{filesCount}] files in folder [{_options.LogFilesFolder}]");
         }
 
         // Post each file path
@@ -163,6 +163,8 @@ public class LogFileLineProducer
         [System.Runtime.CompilerServices.EnumeratorCancellation]
         CancellationToken cancellationToken)
     {
+        var filesInBuffer = (FilePathsBlock as BufferBlock<string>).Count;
+        //Console.WriteLine($"Reading file [{filePath}] with {filesInBuffer} files in buffer.");
         using var fs = new FileStream(
             filePath,
             FileMode.Open,

@@ -2,19 +2,21 @@
   "HashAggregatorOptions": {
     "LogFilesOptions": {
       "LogFilesFolder": "V:\\DSP-Logs\\63 Logs",
+      //"LogFilesFolder": "V:\\DSP-Logs\\DSP-Logs-20250408\\AdminPortal",
       "SearchPattern": "*.*",
       "EnumerationOptions": {
         "RecurseSubdirectories": true
       }
     },
     "Concurrency": 8,
-    "BulkReadLinesSize": 50,
-    "ResultsFilePath": "DSP-LogStatTool-Results.xlsx",
-    "OpenResultFile": true
+    "BulkReadLinesSize": 20,
+    "ResultsFilePath": "DSP-.xlsx",
+    "OpenResultFile": true,
+    "ResultFilePerFolder": false
   },
   "LineOptimizationOptions": {
-    "MaxLineLength": 20000,
-    "CheckPrefixFilterLength": 135,
+    "MaxLineLength": 1000,
+    "CheckPrefixFilterLength": 200,
     "PrefixFilter": "ERROR|WARN",
     "ReplacmentPatterns": {
       "O=.+,OU=.+,CN=.+,E=.+\\.com": "<Certificate>",

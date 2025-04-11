@@ -32,8 +32,6 @@ public class HashAggregatorPipeline
     // We'll store the overall pipeline's final Task, so we know when it's done.
     private Task? _runTask;
 
-    // This block will emit final results if the user wants them as a dataflow block
-    private BufferBlock<(string line, int count)>? _outputBlock;
 
     public HashAggregatorPipeline(HashAggregatorOptions options)
     {
@@ -86,9 +84,22 @@ public class HashAggregatorPipeline
         var linesBlock = logLinesProducer.Build(progress, cancellationToken);
 
         // 2) Create a TransformBlock to hash each line
-        var hashLinesBlock = new TransformBlock<string, ulong?>(
+        var hashLinesBlock = new ActionBlock<string>(
             line =>
             {
+                // Add this code snippet to periodically print the InputCount and OutputCount every 500ms.
+                //var printTask = Task.Run(async () =>
+                //{
+                //    while (!cancellationToken.IsCancellationRequested)
+                //    {
+                //        var linesBlockInputCount = (logLinesProducer.LinesBlock as TransformManyBlock<string, string>)?.InputCount ?? 0;
+                //        var linesBlockOutputCount = (logLinesProducer.LinesBlock as TransformManyBlock<string, string>)?.OutputCount ?? 0;
+                //        Console.WriteLine($"Periodic Check: InputCount={linesBlockInputCount}, OutputCount={linesBlockOutputCount}");
+                //        await Task.Delay(500, cancellationToken);
+                //    }
+                //});
+
+                // Ensure the printTask is awaited or handled properly in your pipeline's lifecycle.
                 var hash = _hasher.ProcessLine(ref line);
                 if (hash != null)
                 {
@@ -98,14 +109,12 @@ public class HashAggregatorPipeline
                         (_, oldVal) => (oldVal.Representative, oldVal.Count + 1)
                     );
                 }
-
-                return hash;
             },
             new ExecutionDataflowBlockOptions
             {
                 //BoundedCapacity = 1000,
-                BoundedCapacity = -1,
-                MaxDegreeOfParallelism = _concurrency
+                BoundedCapacity = 300,
+                MaxDegreeOfParallelism = _concurrency,
             });
 
 
@@ -121,7 +130,8 @@ public class HashAggregatorPipeline
 
             // b) Wait for the reading pipeline to finish
             await logLinesProducer.Completion.ConfigureAwait(false);
-            //await hashLinesBlock.Completion.ConfigureAwait(false);
+            await hashLinesBlock.Completion.ConfigureAwait(false);
+            await logLinesProducer.LinesBlock.Completion.ConfigureAwait(false);
             // d) If requested, save results to file
             if (string.IsNullOrWhiteSpace(_resultsFilePath) is false)
             {
@@ -132,22 +142,6 @@ public class HashAggregatorPipeline
             if (_openResultFile)
             {
                 OpenResultsFile();
-            }
-
-            // f) If the user wants a dataflow block with final results,
-            //    we populate it now, then Complete it.
-            if (_outputBlock != null)
-            {
-                var finalOrdered = ProduceResults();
-                foreach (var item in finalOrdered)
-                {
-                    // item is (string line, int count)
-                    _outputBlock.Post(item);
-                }
-                _outputBlock.Complete();
-                //free all resources
-                _outputBlock = null;
-                _globalResults.Clear();
             }
         }, cancellationToken);
 
@@ -167,31 +161,6 @@ public class HashAggregatorPipeline
         return ProduceResults();
     }
 
-    /// <summary>
-    /// Returns an ISourceBlock that will emit the final (line, count) results,
-    /// in sorted order, *after* the pipeline finishes.
-    /// You can link this block to further Dataflow blocks for additional processing.
-    /// 
-    /// Note: The messages (line, count) will only start appearing *after* the entire 
-    /// aggregation pipeline completes. Then they are posted all at once, and this block completes.
-    /// </summary>
-    public ISourceBlock<(string line, int count)> GetResultsBlock()
-    {
-        if (_runTask == null)
-            throw new InvalidOperationException("You must call BuildAndRunAsync() first.");
-
-        if (_outputBlock == null)
-        {
-            // We create a BufferBlock that we'll fill after aggregator finishes
-            _outputBlock = new BufferBlock<(string line, int count)>();
-        }
-
-        // If the pipeline has *already* finished, we fill _outputBlock immediately
-        // or we do so in the continuation step of BuildAndRunAsync.
-        // The code in BuildAndRunAsync() already handles filling + completing _outputBlock.
-
-        return _outputBlock;
-    }
 
     //-----------------------------------------------------------------------------------------
     // PRIVATE HELPER METHODS
@@ -203,7 +172,7 @@ public class HashAggregatorPipeline
         // _globalResults is (ulong => (string, int))
         var list = _globalResults.Values
             //.OrderByDescending(x => x.Representative)
-            //.ThenByDescending(x => x.Count)
+            .OrderByDescending(x => x.Count)
             .Select(x => (x.Representative, x.Count))
             .ToList();
 

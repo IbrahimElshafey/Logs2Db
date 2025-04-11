@@ -10,7 +10,7 @@
     },
     "Concurrency": 8,
     "BulkReadLinesSize": 10,
-    "ResultsFilePath": "DIS-LogStatTool-Results.xlsx",
+    "ResultsFilePath": "DIS-.xlsx",
     "OpenResultFile": true
   },
   "LineOptimizationOptions": {
