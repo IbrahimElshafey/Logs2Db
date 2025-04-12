@@ -12,7 +12,7 @@
     "BulkReadLinesSize": 20,
     "ResultsFilePath": "DSP-.xlsx",
     "OpenResultFile": true,
-    "ResultFilePerFolder": false
+    "GenerateResultFilePerFolder": false
   },
   "LineOptimizationOptions": {
     "MaxLineLength": 1000,

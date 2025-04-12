@@ -1,4 +1,5 @@
 ﻿using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Wordprocessing;
 using LogStatTool.Base;
 using LogStatTool.Helpers;
 using System;
@@ -16,14 +17,9 @@ namespace LogStatTool;
 
 public class HashAggregatorPipeline
 {
-    private readonly GetLogFilesOptions _logFilesOptions;
     private readonly Base.ILogLineProcessor<ulong?> _hasher;
-    private readonly int _concurrency;
-    private readonly int _bulkReadSize;
+    private readonly HashAggregatorOptions _options;
 
-    // Whether to write results to a file automatically, and optionally open it.
-    private readonly bool _openResultFile;
-    private readonly string? _resultsFilePath; // if null, we'll generate a unique filename
 
     // Holds (hash => (representative line, count))
     private readonly ConcurrentDictionary<ulong?, (string Representative, int Count)> _globalResults
@@ -32,26 +28,19 @@ public class HashAggregatorPipeline
     // We'll store the overall pipeline's final Task, so we know when it's done.
     private Task? _runTask;
 
-
+        
     public HashAggregatorPipeline(HashAggregatorOptions options)
     {
-        GetLogFilesOptions logFilesOptions = options.LogFilesOptions;
-        Base.ILogLineProcessor<ulong?> hasher = options.Hasher;
-        int concurrency = options.Concurrency;
-        int bulkReadSize = options.BulkReadLinesSize;
-        string? resultsFilePath = options.ResultsFilePath;
-        bool openResultFile = options.OpenResultFile;
 
-        _logFilesOptions = logFilesOptions ?? throw new ArgumentNullException(nameof(logFilesOptions));
-        _hasher = hasher ?? throw new ArgumentNullException(nameof(hasher));
+        if (options.LogFilesOptions == null)
+            throw new ArgumentNullException(nameof(options.LogFilesOptions));
+        _hasher = options.Hasher ?? throw new ArgumentNullException(nameof(options.Hasher));
 
-        if (concurrency <= 0) throw new ArgumentOutOfRangeException(nameof(concurrency));
-        if (bulkReadSize <= 0) throw new ArgumentOutOfRangeException(nameof(bulkReadSize));
-
-        _concurrency = concurrency;
-        _bulkReadSize = bulkReadSize;
-        _openResultFile = openResultFile;
-        _resultsFilePath = resultsFilePath;
+        if (options.HashLinesDataflowConfiguration.Parallelism <= 0)
+            throw new ArgumentOutOfRangeException(nameof(options.HashLinesDataflowConfiguration.Parallelism));
+        if (options.HashLinesDataflowConfiguration.BoundedCapacity <= 0)
+            throw new ArgumentOutOfRangeException(nameof(options.HashLinesDataflowConfiguration.BoundedCapacity));
+        _options = options;
     }
 
     /// <summary>
@@ -75,9 +64,8 @@ public class HashAggregatorPipeline
 
         // 1) Set up the file-reading pipeline internally
         var logLinesProducer = new LogFileLineProducer(
-            options: _logFilesOptions,
-            concurrency: _concurrency,
-            bulkReadSize: _bulkReadSize
+            options: _options.LogFilesOptions,
+            dataflowConfiguration: _options.ProduceLinesDataflowConfiguration
         );
 
         // The source block that emits lines
@@ -100,7 +88,7 @@ public class HashAggregatorPipeline
                 //});
 
                 // Ensure the printTask is awaited or handled properly in your pipeline's lifecycle.
-                var hash = _hasher.ProcessLine(ref line);
+                var hash = _hasher.ProcessLine(line);
                 if (hash != null)
                 {
                     _globalResults.AddOrUpdate(
@@ -113,8 +101,8 @@ public class HashAggregatorPipeline
             new ExecutionDataflowBlockOptions
             {
                 //BoundedCapacity = 1000,
-                BoundedCapacity = 300,
-                MaxDegreeOfParallelism = _concurrency,
+                BoundedCapacity = _options.HashLinesDataflowConfiguration.BoundedCapacity,
+                MaxDegreeOfParallelism = _options.HashLinesDataflowConfiguration.Parallelism,
             });
 
 
@@ -131,15 +119,14 @@ public class HashAggregatorPipeline
             // b) Wait for the reading pipeline to finish
             await logLinesProducer.Completion.ConfigureAwait(false);
             await hashLinesBlock.Completion.ConfigureAwait(false);
-            await logLinesProducer.LinesBlock.Completion.ConfigureAwait(false);
             // d) If requested, save results to file
-            if (string.IsNullOrWhiteSpace(_resultsFilePath) is false)
+            if (string.IsNullOrWhiteSpace(_options.ResultsFilePath) is false)
             {
                 SaveResultsToFile();
             }
 
             // e) If user wants to open the file
-            if (_openResultFile)
+            if (_options.OpenResultFile)
             {
                 OpenResultsFile();
             }
@@ -219,14 +206,14 @@ public class HashAggregatorPipeline
         worksheet.Row(1).Style.Font.Bold = true;
 
         // Save to file
-        workbook.SaveAs(_resultsFilePath);
+        workbook.SaveAs(_options.ResultsFilePath);
 
-        Console.WriteLine($"Results saved to Excel file: {_resultsFilePath}");
+        Console.WriteLine($"Results saved to Excel file: {_options.ResultsFilePath}");
     }
 
     private void OpenResultsFile()
     {
-        if (_resultsFilePath == null)
+        if (_options.ResultsFilePath == null)
         {
             Console.WriteLine("No results file available to open.");
             return;
@@ -236,13 +223,13 @@ public class HashAggregatorPipeline
         {
             Process.Start(new ProcessStartInfo
             {
-                FileName = Path.GetFullPath(_resultsFilePath),
+                FileName = Path.GetFullPath(_options.ResultsFilePath),
                 UseShellExecute = true
             });
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Unable to open file: {_resultsFilePath}\nError: {ex.Message}");
+            Console.WriteLine($"Unable to open file: {_options.ResultsFilePath}\nError: {ex.Message}");
         }
     }
 }

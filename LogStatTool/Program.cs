@@ -3,12 +3,12 @@ using DocumentFormat.OpenXml.Presentation;
 using LogStatTool;
 using LogStatTool.Base;
 using LogStatTool.Contracts;
-using LogStatTool.Old;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -19,7 +19,7 @@ internal class Program
     public static async Task Main(string[] args)
     {
         Console.BufferHeight = 100;
-        switch (2)
+        switch (1)
         {
             case 1:
                 await TestLineProducer();
@@ -35,11 +35,16 @@ internal class Program
     }
     static async Task TestLineProducer()
     {
-        var config = await LoadConfigurationAsync(@$".\HashAggregatorConfigFiles\dsp.json");
-        var linesProdcucer = new LogFileLineProducer(config.HashAggregatorOptions.LogFilesOptions);
+        var stopwatch = Stopwatch.StartNew(); // Start measuring time
+        var initialMemory = GC.GetAllocatedBytesForCurrentThread(); // Capture initial memory usage
+
+        var config = await LoadConfigurationAsync(@$".\HashAggregatorConfigFiles\bes.json");
+        var linesProdcucer = new LogFileLineProducer(
+            config.HashAggregatorOptions.LogFilesOptions,
+            config.HashAggregatorOptions.ProduceLinesDataflowConfiguration);
         var progress = new Progress<float>(p =>
             {
-                Console.WriteLine($"Reading progress: {p:F2}%");
+                //Console.WriteLine($"Reading progress: {p:F2}%");
             }
         );
         var linesBlock = linesProdcucer.Build(progress, CancellationToken.None);
@@ -48,14 +53,28 @@ internal class Program
             line =>
             {
                 Interlocked.Increment(ref linesCount);
+                line = null;
                 //Console.WriteLine($"####Lines count is {linesCount}");
-            });
+            },
+            new ExecutionDataflowBlockOptions { BoundedCapacity = -1 });
         linesBlock.LinkTo(countLinesBlock, new DataflowLinkOptions { PropagateCompletion = true });
         await linesProdcucer.PostAllFilePathsAsync();
         linesBlock.Complete();
         await countLinesBlock.Completion;
+
+        var finalMemory = GC.GetAllocatedBytesForCurrentThread(); // Capture final memory usage
+        stopwatch.Stop(); // Stop measuring time
+
+        Console.WriteLine($"Time consumed: {stopwatch.Elapsed}");
+        Console.WriteLine($"Memory used: {(finalMemory - initialMemory)/1024/1024} bytes");
+
+        Console.WriteLine(GC.GetAllocatedBytesForCurrentThread());
+        GC.Collect();
+        Console.WriteLine(GC.GetAllocatedBytesForCurrentThread());
+        Console.WriteLine(JsonConvert.SerializeObject(GC.GetGCMemoryInfo(), Formatting.Indented));
         Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine($"Total processd line are {linesCount}");
+        GC.Collect();
+        Console.WriteLine($"Total processed lines are {linesCount}");
     }
 
     public static async Task FindTopRepeatedLinesRefactored()
@@ -76,7 +95,7 @@ internal class Program
         // Create a line hasher
         LogStatTool.Base.ILogLineProcessor<ulong?> hasher = new SimpleLineHasher(config.LineOptimizationOptions);
 
-        if (config.HashAggregatorOptions.ResultFilePerFolder)
+        if (config.HashAggregatorOptions.GenerateResultFilePerFolder)
         {
             var folders = Directory.GetDirectories(config.HashAggregatorOptions.LogFilesOptions.LogFilesFolder);
             foreach (var folder in folders)

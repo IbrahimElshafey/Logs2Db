@@ -9,7 +9,7 @@
     },
     "Concurrency": 8,
     "BulkReadLinesSize": 50,
-    "ResultsFilePath": "UDA-LogStatTool-Results.xlsx",
+    "ResultsFilePath": "UDA-.xlsx",
     "OpenResultFile": true
   },
   "LineOptimizationOptions": {

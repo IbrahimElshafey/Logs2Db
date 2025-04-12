@@ -4,6 +4,6 @@ namespace LogStatTool.Base
 {
     public interface ILogLineProcessor<T>
     {
-        T ProcessLine(ref string rawLine);
+        T ProcessLine(string rawLine);
     }
 }

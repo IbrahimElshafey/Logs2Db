@@ -1,13 +1,14 @@
 ﻿using LogStatTool;
 using LogStatTool.Base;
+using LogStatTool.Contracts;
 
 public class HashAggregatorOptions
 {
-    public GetLogFilesOptions LogFilesOptions { get; set; }
-    public int Concurrency { get; set; } = 4;
-    public int BulkReadLinesSize { get; set; } = 50;
+    public LogFilesOptions LogFilesOptions { get; set; }
+    public ProduceLinesDataflowConfiguration ProduceLinesDataflowConfiguration { get; set; }
+    public HashLinesDataflowConfiguration HashLinesDataflowConfiguration { get; set; }
     public string ResultsFilePath { get; set; } = $"results-{Guid.NewGuid()}.xlsx";
     public bool OpenResultFile { get; set; } = true;
     public ILogLineProcessor<ulong?> Hasher { get; set; }
-    public bool ResultFilePerFolder { get; set; } = false;
+    public bool GenerateResultFilePerFolder { get; set; } = false;
 }

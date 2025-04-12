@@ -1,7 +1,9 @@
-﻿using System;
+﻿using LogStatTool.Contracts;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,66 +13,48 @@ namespace LogStatTool.Base;
 
 public class LogFileLineProducer
 {
-    private readonly GetLogFilesOptions _options;
-    private readonly int _concurrency;
-    private readonly int _bulkReadSize;
+    private readonly LogFilesOptions _options;
+    private readonly ProduceLinesDataflowConfiguration _dataflowConfiguration;
 
     /// <summary>
-    /// Creates a pipeline that:
-    /// 1) Enumerates files in <see cref="_options"/>.
-    /// 2) Reads lines from these files in parallel.
-    /// 3) Exposes an ISourceBlock&lt;string&gt; that emits all lines.
+    /// Creates a pipeline that: 1) Enumerates files in <see cref="_options"/>. 2) Reads lines from these files in
+    /// parallel. 3) Exposes an ISourceBlock&lt;string&gt; that emits all lines.
     /// </summary>
     /// <param name="options">Specifies folder, search pattern, etc.</param>
     /// <param name="concurrency">Max number of files processed in parallel</param>
     /// <param name="bulkReadSize">Number of lines read in a chunk before yielding.</param>
-    public LogFileLineProducer(
-        GetLogFilesOptions options,
-        int concurrency = 4,
-        int bulkReadSize = 100)
+    public LogFileLineProducer(LogFilesOptions options, ProduceLinesDataflowConfiguration dataflowConfiguration = null)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
-        if (concurrency <= 0) throw new ArgumentOutOfRangeException(nameof(concurrency));
-        if (bulkReadSize <= 0) throw new ArgumentOutOfRangeException(nameof(bulkReadSize));
+        if(dataflowConfiguration == null)
+            dataflowConfiguration = new();
 
-        _concurrency = concurrency;
-        _bulkReadSize = bulkReadSize;
+        _dataflowConfiguration = dataflowConfiguration;
     }
 
     /// <summary>
-    /// Builds the Dataflow pipeline and returns an ISourceBlock&lt;string&gt; 
-    /// which emits lines from the log files.
-    /// 
-    /// Make sure to await <see cref="Completion"/> once you've linked downstream blocks
-    /// and posted all files.
+    /// Builds the Dataflow pipeline and returns an ISourceBlock&lt;string&gt;  which emits lines from the log files. 
+    /// Make sure to await <see cref="Completion"/> once you've linked downstream blocks and posted all files.
     /// </summary>
-    public ISourceBlock<string> Build(
-        IProgress<float>? progress = null,
-        CancellationToken cancellationToken = default)
+    public ISourceBlock<string> Build(IProgress<float>? progress = null, CancellationToken cancellationToken = default)
     {
         // 1) Create the blocks.
 
         // A. BufferBlock => file paths
-        var filePathsBlock = new BufferBlock<string>(new DataflowBlockOptions
-        {
-            BoundedCapacity = 10,
-        });
+        var filePathsBlock = new BufferBlock<string>(
+            new DataflowBlockOptions { BoundedCapacity = _dataflowConfiguration.PathsBoundedCapacity, });
 
         // B. TransformManyBlock => read lines from each file in parallel
         var readFileBlock = new TransformManyBlock<string, string>(
             filePath => ReadFileByChunksAsync(filePath, progress, cancellationToken),
             new ExecutionDataflowBlockOptions
             {
-                MaxDegreeOfParallelism = _concurrency,
-                //BoundedCapacity = _bulkReadSize / _concurrency,
-                BoundedCapacity = 10,//maximum files to read in parallel
-                //MaxMessagesPerTask = 2,
+                MaxDegreeOfParallelism = _dataflowConfiguration.PathToLinesParallelism,
+                BoundedCapacity = _dataflowConfiguration.PathToLinesBoundedCapacity,
             });
 
         // 2) Link them
-        filePathsBlock.LinkTo(
-            readFileBlock,
-            new DataflowLinkOptions { PropagateCompletion = true });
+        filePathsBlock.LinkTo(readFileBlock, new DataflowLinkOptions { PropagateCompletion = true });
 
         // 3) Return readFileBlock as the “source” block 
         // that downstream can link from:
@@ -81,35 +65,29 @@ public class LogFileLineProducer
     }
 
     /// <summary>
-    /// Once you have built the pipeline, this is the block 
-    /// you can use to post file paths in a streaming manner.
+    /// Once you have built the pipeline, this is the block  you can use to post file paths in a streaming manner.
     /// Typically, you'll do that from an async producer task.
     /// </summary>
-    public ITargetBlock<string>? FilePathsBlock { get; private set; }
+    private ITargetBlock<string>? FilePathsBlock { get; set; }
 
     /// <summary>
     /// The “root” source block that emits strings (log lines).
     /// </summary>
-    public ISourceBlock<string>? LinesBlock { get; private set; }
+    private ISourceBlock<string>? LinesBlock { get; set; }
 
     /// <summary>
-    /// We expose a Task you can await to know when the reading pipeline completes.
-    /// Usually, you'll call <see cref="FilePathsBlock.Complete()"/> after 
-    /// posting all paths, and then await this property.
+    /// We expose a Task you can await to know when the reading pipeline completes. Usually, you'll call <see
+    /// cref="FilePathsBlock.Complete()"/> after  posting all paths, and then await this property.
     /// </summary>
     public Task Completion => LinesBlock?.Completion ?? Task.CompletedTask;
 
     /// <summary>
-    /// Actually enumerates files from the folder/pattern,
-    /// and posts them into the pipeline (FilePathsBlock).
-    /// 
-    /// This is where you do your "producer" role:
-    /// enumerating the file paths and sending them 
-    /// into the pipeline for reading.
+    /// Actually enumerates files from the folder/pattern, and posts them into the pipeline (FilePathsBlock).  This is
+    /// where you do your "producer" role: enumerating the file paths and sending them  into the pipeline for reading.
     /// </summary>
     public async Task PostAllFilePathsAsync(CancellationToken cancellationToken = default)
     {
-        if (FilePathsBlock == null)
+        if(FilePathsBlock == null)
             throw new InvalidOperationException("Call Build() first.");
 
         // Enumerate the file paths
@@ -118,31 +96,32 @@ public class LogFileLineProducer
             _options.SearchPattern,
             _options.EnumerationOptions);
 
-        if (_options.PathFilter != null)
+        if(string.IsNullOrWhiteSpace(_options.RegexPathFilter))
         {
-            filePaths = filePaths.Where(x => x.Contains(_options.PathFilter, StringComparison.OrdinalIgnoreCase));
+            var pathFilterRegex = new Regex(
+                _options.RegexPathFilter ?? string.Empty,
+                RegexOptions.Compiled | RegexOptions.IgnoreCase);
+            filePaths = filePaths.Where(x => pathFilterRegex.IsMatch(x));
         }
 
         var filesCount = filePaths.Count();
-        if (filesCount == 0)
+        if(filesCount == 0)
         {
             Console.WriteLine("No files found to process.");
             FilePathsBlock.Complete();
             return;
-        }
-        else
+        } else
         {
             _totalFilesCount = filesCount;
             Console.WriteLine($"Start processing [{filesCount}] files in folder [{_options.LogFilesFolder}]");
         }
 
         // Post each file path
-        foreach (var path in filePaths)
+        foreach(var path in filePaths)
         {
             //Console.WriteLine(path);
             cancellationToken.ThrowIfCancellationRequested();
-            await FilePathsBlock.SendAsync(path, cancellationToken)
-                                .ConfigureAwait(false);
+            await FilePathsBlock.SendAsync(path, cancellationToken).ConfigureAwait(false);
         }
 
         // Indicate we're done posting
@@ -154,59 +133,59 @@ public class LogFileLineProducer
     private int _totalFilesCount = 0;
 
     /// <summary>
-    /// This method reads a single file in chunks, yielding lines.
-    /// Called by TransformManyBlock for each file path.
+    /// This method reads a single file in chunks, yielding lines. Called by TransformManyBlock for each file path.
     /// </summary>
-    private async IAsyncEnumerable<string> ReadFileByChunksAsync(
-        string filePath,
-        IProgress<float>? progress,
-        [System.Runtime.CompilerServices.EnumeratorCancellation]
+    private async IAsyncEnumerable<string> ReadFileByChunksAsync(string filePath, IProgress<float>? progress, [System.Runtime.CompilerServices.EnumeratorCancellation]
         CancellationToken cancellationToken)
     {
-        var filesInBuffer = (FilePathsBlock as BufferBlock<string>).Count;
-        //Console.WriteLine($"Reading file [{filePath}] with {filesInBuffer} files in buffer.");
+        int bufferSize = _dataflowConfiguration.BulkReadSize; // Used as byte buffer size
+        byte[] buffer = new byte[bufferSize];
+        char[] charBuffer = new char[Encoding.UTF8.GetMaxCharCount(bufferSize)];
+        var decoder = Encoding.UTF8.GetDecoder();
+
+        var currentLine = new StringBuilder();
+        int bytesRead;
+
         using var fs = new FileStream(
             filePath,
             FileMode.Open,
             FileAccess.Read,
             FileShare.Read,
-            81920,
+            bufferSize,
             FileOptions.Asynchronous | FileOptions.SequentialScan);
 
-        using var reader = new StreamReader(fs);
-
-        var linesBuffer = new List<string>(_bulkReadSize);
-
-        while (!reader.EndOfStream)
+        do
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var line = await reader.ReadLineAsync().ConfigureAwait(false);
-            if (line is null) break;
+            bytesRead = await fs.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(false);
+            if(bytesRead == 0)
+                break;
 
-            linesBuffer.Add(line);
+            int charsDecoded = decoder.GetChars(buffer, 0, bytesRead, charBuffer, 0, flush: false);
 
-            // Yield whenever we fill a chunk:
-            if (linesBuffer.Count >= _bulkReadSize)
+            for(int i = 0; i < charsDecoded; i++)
             {
-                foreach (var chunkLine in linesBuffer)
+                char c = charBuffer[i];
+
+                // If newline, yield the line built so far
+                if(c == '\n')
                 {
-                    yield return chunkLine;
+                    yield return currentLine.ToString();
+                    currentLine.Clear();
                 }
-                linesBuffer.Clear();
+ // Skip carriage return, or else accumulate the char
+ else if(c != '\r')
+                {
+                    currentLine.Append(c);
+                }
             }
-        }
+        } while (bytesRead > 0);
 
-        // leftover lines
-        if (linesBuffer.Count > 0)
+        if(currentLine.Length > 0)
         {
-            foreach (var leftover in linesBuffer)
-            {
-                yield return leftover;
-            }
-            linesBuffer.Clear();
+            yield return currentLine.ToString();
+            currentLine.Clear();
         }
-
-      
 
         var soFar = Interlocked.Increment(ref _filesProcessedSoFar);
         float percent = soFar / (float)_totalFilesCount * 100f;

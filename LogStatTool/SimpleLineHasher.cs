@@ -26,7 +26,7 @@ public class SimpleLineHasher : Base.ILogLineProcessor<ulong?>
     /// returning the hash as a byte array.
     /// Returns null if the line fails filtering.
     /// </summary>
-    public ulong? ProcessLine(ref string rawLine)
+    public ulong? ProcessLine(string rawLine)
     {
         if (string.IsNullOrEmpty(rawLine))
             return null;

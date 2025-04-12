@@ -3,7 +3,7 @@
     "LogFilesOptions": {
       "LogFilesFolder": "V:\\EgateLogs\\Ameer-26032025-Logs\\Departure-2025-03-26\\MonitoringStationDeparture _Logs\\",
       "SearchPattern": "log-*.log",
-      "PathFilter": "\\Logs-DIS\\",
+      "PathFilter": "\\\\Logs-DIS\\\\",
       "EnumerationOptions": {
         "RecurseSubdirectories": true
       }
