@@ -10,10 +10,10 @@
       }
     },
     "ProduceLinesDataflowConfiguration": {
-      "PathsBoundedCapacity": 10,
-      "BulkReadSize": 1048576, // 1MB
+      "PathsBoundedCapacity": 3,
+      "BulkReadSize": 10240, // 1MB
       "PathToLinesParallelism": 8,
-      "PathToLinesBoundedCapacity": 10 // Memory buffer = PathsBoundedCapacity * BulkReadSize * PathToLinesBoundedCapacity = 3 * 1MB * 10 = 30MB
+      "PathToLinesBoundedCapacity": 300 // Memory buffer = PathsBoundedCapacity * BulkReadSize * PathToLinesBoundedCapacity = 3 * 1MB * 10 = 30MB
     },
     "HashLinesDataflowConfiguration": {
       "BoundedCapacity": 1000,

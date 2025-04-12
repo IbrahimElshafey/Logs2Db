@@ -27,12 +27,53 @@ internal class Program
             case 2:
                 await FindTopRepeatedLinesRefactored();
                 break;
+            case 3:
+                await TestLineProducerChannel();
+                break;
             default:
                 Console.WriteLine("Invalid option");
                 break;
         }
         Console.ReadLine();
     }
+    static async Task TestLineProducerChannel()
+    {
+        var stopwatch = Stopwatch.StartNew(); // Start measuring time
+        var initialMemory = GC.GetAllocatedBytesForCurrentThread(); // Capture initial memory usage
+
+        var config = await LoadConfigurationAsync(@$".\HashAggregatorConfigFiles\bes.json");
+        var linesProdcucer = new LogFileLineProducerChannel(
+            config.HashAggregatorOptions.LogFilesOptions,
+            config.HashAggregatorOptions.ProduceLinesDataflowConfiguration);
+        var progress = new Progress<float>(p =>
+        {
+            Console.WriteLine($"Reading progress: {p:F2}%");
+        }
+        );
+        var reader = linesProdcucer.Build(progress, CancellationToken.None);
+        _ = linesProdcucer.PostAllFilePathsAsync();
+
+        //read lines from the channel
+        int linesCount = 0;
+        await foreach (var line in reader.ReadAllAsync())
+        {
+            Interlocked.Increment(ref linesCount);
+        }
+        var finalMemory = GC.GetAllocatedBytesForCurrentThread(); // Capture final memory usage
+        stopwatch.Stop(); // Stop measuring time
+
+        Console.WriteLine($"Time consumed: {stopwatch.Elapsed}");
+        Console.WriteLine($"Memory used: {(finalMemory - initialMemory) / 1024 / 1024} bytes");
+
+        Console.WriteLine(GC.GetAllocatedBytesForCurrentThread());
+        GC.Collect();
+        Console.WriteLine(GC.GetAllocatedBytesForCurrentThread());
+        Console.WriteLine(JsonConvert.SerializeObject(GC.GetGCMemoryInfo(), Formatting.Indented));
+        Console.ForegroundColor = ConsoleColor.Green;
+        GC.Collect();
+        Console.WriteLine($"Total processed lines are {linesCount}");
+    }
+
     static async Task TestLineProducer()
     {
         var stopwatch = Stopwatch.StartNew(); // Start measuring time
@@ -44,7 +85,7 @@ internal class Program
             config.HashAggregatorOptions.ProduceLinesDataflowConfiguration);
         var progress = new Progress<float>(p =>
             {
-                //Console.WriteLine($"Reading progress: {p:F2}%");
+                Console.WriteLine($"Reading progress: {p:F2}%");
             }
         );
         var linesBlock = linesProdcucer.Build(progress, CancellationToken.None);
@@ -66,7 +107,7 @@ internal class Program
         stopwatch.Stop(); // Stop measuring time
 
         Console.WriteLine($"Time consumed: {stopwatch.Elapsed}");
-        Console.WriteLine($"Memory used: {(finalMemory - initialMemory)/1024/1024} bytes");
+        Console.WriteLine($"Memory used: {(finalMemory - initialMemory) / 1024 / 1024} bytes");
 
         Console.WriteLine(GC.GetAllocatedBytesForCurrentThread());
         GC.Collect();
