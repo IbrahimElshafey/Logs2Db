@@ -13,7 +13,7 @@
       "PathsBoundedCapacity": 3,
       "BulkReadSize": 10240, // 1MB
       "PathToLinesParallelism": 8,
-      "PathToLinesBoundedCapacity": 300 // Memory buffer = PathsBoundedCapacity * BulkReadSize * PathToLinesBoundedCapacity = 3 * 1MB * 10 = 30MB
+      "PathToLinesBoundedCapacity": 100 // Memory buffer = PathsBoundedCapacity * BulkReadSize * PathToLinesBoundedCapacity = 3 * 1MB * 10 = 30MB
     },
     "HashLinesDataflowConfiguration": {
       "BoundedCapacity": 1000,
