@@ -1,13 +1,10 @@
-﻿namespace LogStatTool;
-
-using LogStatTool.Base;
-using LogStatTool.Contracts;
+﻿namespace LogsProcessingCore.Implementations;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 
-public class WeightedLineGrouper:ILinesGrouper
+public class WeightedLineGrouper:LogsProcessingCore.Base.ILinesGrouper
 {
     double _weightThreshold;
     public WeightedLineGrouper(double weightThreshold)
@@ -26,12 +23,12 @@ public class WeightedLineGrouper:ILinesGrouper
     /// </summary>
     /// <param name="lines">The aggregated lines, each with a text and a count of occurrences.</param>
     /// <param name="weightThreshold">Minimum weight needed for a token to remain in a line.</param>
-    public List<LinesGroup> BuildLineGroups(
+    public List<LogsProcessingCore.Contracts.LinesGroup> BuildLineGroups(
         List<(string Representative, int Count)> lines)
     {
         if (lines == null || lines.Count == 0)
         {
-            return new List<LinesGroup>();
+            return new List<LogsProcessingCore.Contracts.LinesGroup>();
         }
 
         // STEP 1) Tokenize each line
@@ -112,7 +109,7 @@ public class WeightedLineGrouper:ILinesGrouper
         }
 
         // STEP 5) Build the final LinesGroup objects
-        var result = new List<LinesGroup>();
+        var result = new List<LogsProcessingCore.Contracts.LinesGroup>();
         foreach (var kvp in groupsMap)
         {
             var signature = kvp.Key;
@@ -126,7 +123,7 @@ public class WeightedLineGrouper:ILinesGrouper
                 : signature;
 
             // Create a LinesGroup
-            var group = new LinesGroup(
+            var group = new LogsProcessingCore.Contracts.LinesGroup(
                 representativeLine: representative,
                 totalCount: sumCount,
                 originalLines: linesList

@@ -1,6 +1,5 @@
-﻿using System;
-
-namespace LogStatTool.Contracts
+﻿
+namespace LogsProcessingCore.Contracts
 {
     public class LineOptimizationOptions
     {

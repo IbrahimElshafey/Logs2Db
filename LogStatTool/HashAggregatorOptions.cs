@@ -1,7 +1,7 @@
-﻿using LogStatTool;
-using LogStatTool.Base;
-using LogStatTool.Contracts;
+﻿using LogsProcessingCore.Contracts;
+using LogsProcessingCore;
 
+namespace LogStatTool;
 public class HashAggregatorOptions
 {
     public LogFilesOptions LogFilesOptions { get; set; }
@@ -9,6 +9,6 @@ public class HashAggregatorOptions
     public HashLinesDataflowConfiguration HashLinesDataflowConfiguration { get; set; }
     public string ResultsFilePath { get; set; } = $"results-{Guid.NewGuid()}.xlsx";
     public bool OpenResultFile { get; set; } = true;
-    public ILogLineProcessor<ulong?> Hasher { get; set; }
+    public LogsProcessingCore.Base.ILogLineProcessor<ulong?> Hasher { get; set; }
     public bool GenerateResultFilePerFolder { get; set; } = false;
 }

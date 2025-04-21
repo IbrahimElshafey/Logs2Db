@@ -1,15 +1,9 @@
-﻿using LogStatTool.Contracts;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+﻿using LogsProcessingCore.Contracts;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 
-namespace LogStatTool.Base;
+namespace LogsProcessingCore.Base;
 
 public class LogFileLineProducer
 {
@@ -26,7 +20,7 @@ public class LogFileLineProducer
     public LogFileLineProducer(LogFilesOptions options, ProduceLinesDataflowConfiguration dataflowConfiguration = null)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
-        if(dataflowConfiguration == null)
+        if (dataflowConfiguration == null)
             dataflowConfiguration = new();
 
         _dataflowConfiguration = dataflowConfiguration;
@@ -87,7 +81,7 @@ public class LogFileLineProducer
     /// </summary>
     public async Task PostAllFilePathsAsync(CancellationToken cancellationToken = default)
     {
-        if(FilePathsBlock == null)
+        if (FilePathsBlock == null)
             throw new InvalidOperationException("Call Build() first.");
 
         // Enumerate the file paths
@@ -96,7 +90,7 @@ public class LogFileLineProducer
             _options.SearchPattern,
             _options.EnumerationOptions);
 
-        if(string.IsNullOrWhiteSpace(_options.RegexPathFilter))
+        if (string.IsNullOrWhiteSpace(_options.RegexPathFilter))
         {
             var pathFilterRegex = new Regex(
                 _options.RegexPathFilter ?? string.Empty,
@@ -105,19 +99,20 @@ public class LogFileLineProducer
         }
 
         var filesCount = filePaths.Count();
-        if(filesCount == 0)
+        if (filesCount == 0)
         {
             Console.WriteLine("No files found to process.");
             FilePathsBlock.Complete();
             return;
-        } else
+        }
+        else
         {
             _totalFilesCount = filesCount;
             Console.WriteLine($"Start processing [{filesCount}] files in folder [{_options.LogFilesFolder}]");
         }
 
         // Post each file path
-        foreach(var path in filePaths)
+        foreach (var path in filePaths)
         {
             //Console.WriteLine(path);
             cancellationToken.ThrowIfCancellationRequested();
@@ -158,30 +153,30 @@ public class LogFileLineProducer
         {
             cancellationToken.ThrowIfCancellationRequested();
             bytesRead = await fs.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(false);
-            if(bytesRead == 0)
+            if (bytesRead == 0)
                 break;
 
             int charsDecoded = decoder.GetChars(buffer, 0, bytesRead, charBuffer, 0, flush: false);
 
-            for(int i = 0; i < charsDecoded; i++)
+            for (int i = 0; i < charsDecoded; i++)
             {
                 char c = charBuffer[i];
 
                 // If newline, yield the line built so far
-                if(c == '\n')
+                if (c == '\n')
                 {
                     yield return currentLine.ToString();
                     currentLine.Clear();
                 }
- // Skip carriage return, or else accumulate the char
- else if(c != '\r')
+                // Skip carriage return, or else accumulate the char
+                else if (c != '\r')
                 {
                     currentLine.Append(c);
                 }
             }
         } while (bytesRead > 0);
 
-        if(currentLine.Length > 0)
+        if (currentLine.Length > 0)
         {
             yield return currentLine.ToString();
             currentLine.Clear();

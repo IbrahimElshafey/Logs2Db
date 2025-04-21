@@ -13,6 +13,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\LogsProcessingCore\LogsProcessingCore.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="HashAggregatorConfigFiles\DIS.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

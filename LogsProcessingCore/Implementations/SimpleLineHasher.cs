@@ -1,14 +1,14 @@
-﻿using LogStatTool.Contracts;
+﻿
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
-namespace LogStatTool;
+namespace LogsProcessingCore.Implementations;
 
 public class SimpleLineHasher : Base.ILogLineProcessor<ulong?>
 {
-    private readonly LineOptimizationOptions _options;
+    private readonly Contracts.LineOptimizationOptions _options;
     private readonly Dictionary<string, Regex> _compiledPatterns;
-    public SimpleLineHasher(LineOptimizationOptions options)
+    public SimpleLineHasher(Contracts.LineOptimizationOptions options)
     {
         _options = options;
         if (options?.ReplacmentPatterns?.Any() is true)
@@ -31,7 +31,7 @@ public class SimpleLineHasher : Base.ILogLineProcessor<ulong?>
         if (string.IsNullOrEmpty(rawLine))
             return null;
 
-      
+
         // Check the first CheckPrefixFilterLength characters for the PrefixFilter using ReadOnlySpan.
         int checkLen = Math.Min(_options.CheckPrefixFilterLength, rawLine.Length);
         ReadOnlySpan<char> firstPart = rawLine.AsSpan(0, checkLen);

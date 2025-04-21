@@ -1,5 +1,5 @@
 ﻿// See https://aka.ms/new-console-template for more information
-
+namespace LogsProcessingCore.Contracts;
 public class LogFilesOptions
 {
     public string LogFilesFolder { get; set; }

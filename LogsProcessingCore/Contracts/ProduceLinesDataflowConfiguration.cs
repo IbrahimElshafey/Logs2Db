@@ -1,7 +1,5 @@
-﻿using System;
-using System.Linq;
-
-namespace LogStatTool.Contracts
+﻿
+namespace LogsProcessingCore.Contracts
 {
     public class ProduceLinesDataflowConfiguration
     {

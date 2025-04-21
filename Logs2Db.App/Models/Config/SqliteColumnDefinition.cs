@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Logs2Db.App.Models.Config
+﻿namespace Logs2Db.App.Models.Config
 {
     public class SqliteColumnDefinition
     {

@@ -1,24 +1,15 @@
 ﻿using ClosedXML.Excel;
-using DocumentFormat.OpenXml.Wordprocessing;
-using LogStatTool.Base;
-using LogStatTool.Helpers;
-using System;
+using LogsProcessingCore.Contracts;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 
 namespace LogStatTool;
 
 public class HashAggregatorPipeline
 {
-    private readonly Base.ILogLineProcessor<ulong?> _hasher;
-    private readonly HashAggregatorOptions _options;
+    private readonly LogsProcessingCore.Base.ILogLineProcessor<ulong?> _hasher;
+    private readonly LogStatTool.HashAggregatorOptions _options;
 
 
     // Holds (hash => (representative line, count))
@@ -29,7 +20,7 @@ public class HashAggregatorPipeline
     private Task? _runTask;
 
         
-    public HashAggregatorPipeline(HashAggregatorOptions options)
+    public HashAggregatorPipeline(LogStatTool.HashAggregatorOptions options)
     {
 
         if (options.LogFilesOptions == null)
@@ -63,7 +54,7 @@ public class HashAggregatorPipeline
         }
 
         // 1) Set up the file-reading pipeline internally
-        var logLinesProducer = new LogFileLineProducer(
+        var logLinesProducer = new LogsProcessingCore.Base.LogFileLineProducer(
             options: _options.LogFilesOptions,
             dataflowConfiguration: _options.ProduceLinesDataflowConfiguration
         );
