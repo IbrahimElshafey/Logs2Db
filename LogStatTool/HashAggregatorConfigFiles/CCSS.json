@@ -1,0 +1,34 @@
+{
+  "HashAggregatorOptions": {
+    "LogFilesOptions": {
+      "LogFilesFolder": "C:\\Users\\DELL\\Desktop\\~temp\\DSP-ErrorCode-Round2\\CCSS-March_Logs",
+      //"LogFilesFolder": "V:\\DSP-Logs\\DSP-Logs-20250408\\AdminPortal",
+      "SearchPattern": "*.*",
+      "EnumerationOptions": {
+        "RecurseSubdirectories": true
+      }
+    },
+    "ProduceLinesDataflowConfiguration": {
+      "PathsBoundedCapacity": 3,
+      "BulkReadSize": 10240, // 1MB
+      "PathToLinesParallelism": 4,
+      "PathToLinesBoundedCapacity": 100 // Memory buffer = PathsBoundedCapacity * BulkReadSize * PathToLinesBoundedCapacity = 3 * 1MB * 10 = 30MB
+    },
+    "HashLinesDataflowConfiguration": {
+      "BoundedCapacity": 1000,
+      "Parallelism": 8
+    },
+    "ResultsFilePath": "G-.xlsx",
+    "OpenResultFile": true,
+    "GenerateResultFilePerFolder": false
+  },
+  "LineOptimizationOptions": {
+    "MaxLineLength": 1000,
+    "CheckPrefixFilterLength": 10000,
+    "PrefixFilter": "(\\| ERROR \\||\\| WARN  \\|)" //,
+    //"ReplacmentPatterns": {
+    //  "O=.+,OU=.+,CN=.+,E=.+\\.com": "<Certificate>",
+    //  "\\s+\\d+\\s+\\|.+\\d+\\s+\\|": ""
+    //}
+  }
+}

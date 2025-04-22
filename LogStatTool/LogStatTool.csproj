@@ -26,6 +26,9 @@
     <None Update="HashAggregatorConfigFiles\Driver.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="HashAggregatorConfigFiles\CCSS.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="HashAggregatorConfigFiles\UDA.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

@@ -1,4 +1,5 @@
 ﻿using LogsProcessingCore.Contracts;
+using System.Buffers;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks.Dataflow;
@@ -30,7 +31,7 @@ public class LogFileLineProducer
     /// Builds the Dataflow pipeline and returns an ISourceBlock&lt;string&gt;  which emits lines from the log files. 
     /// Make sure to await <see cref="Completion"/> once you've linked downstream blocks and posted all files.
     /// </summary>
-    public ISourceBlock<string> Build(IProgress<float>? progress = null, CancellationToken cancellationToken = default)
+    public ISourceBlock<LogLine> Build(IProgress<float>? progress = null, CancellationToken cancellationToken = default)
     {
         // 1) Create the blocks.
 
@@ -39,7 +40,7 @@ public class LogFileLineProducer
             new DataflowBlockOptions { BoundedCapacity = _dataflowConfiguration.PathsBoundedCapacity, });
 
         // B. TransformManyBlock => read lines from each file in parallel
-        var readFileBlock = new TransformManyBlock<string, string>(
+        var readFileBlock = new TransformManyBlock<string, LogLine>(
             filePath => ReadFileByChunksAsync(filePath, progress, cancellationToken),
             new ExecutionDataflowBlockOptions
             {
@@ -67,7 +68,7 @@ public class LogFileLineProducer
     /// <summary>
     /// The “root” source block that emits strings (log lines).
     /// </summary>
-    private ISourceBlock<string>? LinesBlock { get; set; }
+    private ISourceBlock<LogLine>? LinesBlock { get; set; }
 
     /// <summary>
     /// We expose a Task you can await to know when the reading pipeline completes. Usually, you'll call <see
@@ -130,15 +131,21 @@ public class LogFileLineProducer
     /// <summary>
     /// This method reads a single file in chunks, yielding lines. Called by TransformManyBlock for each file path.
     /// </summary>
-    private async IAsyncEnumerable<string> ReadFileByChunksAsync(string filePath, IProgress<float>? progress, [System.Runtime.CompilerServices.EnumeratorCancellation]
-        CancellationToken cancellationToken)
+    private async IAsyncEnumerable<LogLine> ReadFileByChunksAsync(
+    string filePath,
+    IProgress<float>? progress,
+    [System.Runtime.CompilerServices.EnumeratorCancellation]
+    CancellationToken cancellationToken)
     {
-        int bufferSize = _dataflowConfiguration.BulkReadSize; // Used as byte buffer size
-        byte[] buffer = new byte[bufferSize];
-        char[] charBuffer = new char[Encoding.UTF8.GetMaxCharCount(bufferSize)];
+        int bufferSize = _dataflowConfiguration.BulkReadSize; // byte buffer size
+        var bytePool = ArrayPool<byte>.Shared;
+        var charPool = ArrayPool<char>.Shared;
+        byte[] buffer = bytePool.Rent(bufferSize);
+        char[] charBuffer = charPool.Rent(Encoding.UTF8.GetMaxCharCount(bufferSize));
         var decoder = Encoding.UTF8.GetDecoder();
-
         var currentLine = new StringBuilder();
+
+        int lineIndex = 1;   // ← track line numbers
         int bytesRead;
 
         using var fs = new FileStream(
@@ -152,23 +159,26 @@ public class LogFileLineProducer
         do
         {
             cancellationToken.ThrowIfCancellationRequested();
-            bytesRead = await fs.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(false);
+            bytesRead = await fs
+                .ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)
+                .ConfigureAwait(false);
             if (bytesRead == 0)
                 break;
 
-            int charsDecoded = decoder.GetChars(buffer, 0, bytesRead, charBuffer, 0, flush: false);
+            int charsDecoded = decoder.GetChars(
+                buffer, 0, bytesRead, charBuffer, 0, flush: false);
 
             for (int i = 0; i < charsDecoded; i++)
             {
                 char c = charBuffer[i];
 
-                // If newline, yield the line built so far
                 if (c == '\n')
                 {
-                    yield return currentLine.ToString();
+                    // yield the completed line with its index
+                    yield return new LogLine(currentLine.ToString(), lineIndex, filePath);
+                    lineIndex++;
                     currentLine.Clear();
                 }
-                // Skip carriage return, or else accumulate the char
                 else if (c != '\r')
                 {
                     currentLine.Append(c);
@@ -176,14 +186,18 @@ public class LogFileLineProducer
             }
         } while (bytesRead > 0);
 
+        // yield any remaining text as the last line
         if (currentLine.Length > 0)
         {
-            yield return currentLine.ToString();
+            yield return new LogLine(currentLine.ToString(), lineIndex, filePath);
+            lineIndex++;
             currentLine.Clear();
         }
 
         var soFar = Interlocked.Increment(ref _filesProcessedSoFar);
         float percent = soFar / (float)_totalFilesCount * 100f;
         progress?.Report(percent);
+        bytePool.Return(buffer);
+        charPool.Return(charBuffer);
     }
 }

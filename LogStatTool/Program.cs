@@ -1,5 +1,6 @@
 ﻿// See https://aka.ms/new-console-template for more information
 using ClosedXML.Excel;
+using LogsProcessingCore.Contracts;
 using LogsProcessingCore.Implementations;
 using LogStatTool;
 
@@ -86,7 +87,7 @@ internal class Program
         );
         var linesBlock = linesProdcucer.Build(progress, CancellationToken.None);
         int linesCount = 0;
-        var countLinesBlock = new ActionBlock<string>(
+        var countLinesBlock = new ActionBlock<LogLine>(
             line =>
             {
                 Interlocked.Increment(ref linesCount);
@@ -124,8 +125,9 @@ internal class Program
             { 3, "Driver" },
             { 4, "BES" },
             { 5, "DIS" },
+            { 6, "CCSS" },
         };
-        var config = await LoadConfigurationAsync(@$".\HashAggregatorConfigFiles\{configFiles[4]}.json");
+        var config = await LoadConfigurationAsync(@$".\HashAggregatorConfigFiles\{configFiles[6]}.json");
 
 
 

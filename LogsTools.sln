@@ -11,6 +11,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogStatTool", "LogStatTool\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogsProcessingCore", "LogsProcessingCore\LogsProcessingCore.csproj", "{A5FBC918-DE9D-4980-8A9F-D10F4529A1F4}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CCSS_DSP_LogsParser", "CCSS_DSP_LogsParser\CCSS_DSP_LogsParser.csproj", "{8EF31E30-DD3A-49BF-8F52-154191703B9C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZipArchiveCleaner", "ZipCleaner\ZipArchiveCleaner.csproj", "{CA88C965-3F47-45C2-81E2-AA092C86C336}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +37,14 @@ Global
 		{A5FBC918-DE9D-4980-8A9F-D10F4529A1F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A5FBC918-DE9D-4980-8A9F-D10F4529A1F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A5FBC918-DE9D-4980-8A9F-D10F4529A1F4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8EF31E30-DD3A-49BF-8F52-154191703B9C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8EF31E30-DD3A-49BF-8F52-154191703B9C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8EF31E30-DD3A-49BF-8F52-154191703B9C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8EF31E30-DD3A-49BF-8F52-154191703B9C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CA88C965-3F47-45C2-81E2-AA092C86C336}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CA88C965-3F47-45C2-81E2-AA092C86C336}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CA88C965-3F47-45C2-81E2-AA092C86C336}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CA88C965-3F47-45C2-81E2-AA092C86C336}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

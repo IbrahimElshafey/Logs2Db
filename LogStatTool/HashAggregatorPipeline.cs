@@ -12,7 +12,7 @@ public class HashAggregatorPipeline
     private readonly LogStatTool.HashAggregatorOptions _options;
 
 
-    // Holds (hash => (representative line, count))
+    // Holds (hash => (representative logLine, count))
     private readonly ConcurrentDictionary<ulong?, (string Representative, int Count)> _globalResults
         = new ConcurrentDictionary<ulong?, (string, int)>();
 
@@ -37,7 +37,7 @@ public class HashAggregatorPipeline
     /// <summary>
     /// Builds and runs the entire pipeline:
     ///   1) Reads lines in parallel (LogFileLineProducer).
-    ///   2) Hashes each line.
+    ///   2) Hashes each logLine.
     ///   3) Accumulates into _globalResults.
     /// On completion, optionally saves and/or opens the results file.
     /// 
@@ -62,9 +62,9 @@ public class HashAggregatorPipeline
         // The source block that emits lines
         var linesBlock = logLinesProducer.Build(progress, cancellationToken);
 
-        // 2) Create a TransformBlock to hash each line
-        var hashLinesBlock = new ActionBlock<string>(
-            line =>
+        // 2) Create a TransformBlock to hash each logLine
+        var hashLinesBlock = new ActionBlock<LogLine>(
+            logLine =>
             {
                 // Add this code snippet to periodically print the InputCount and OutputCount every 500ms.
                 //var printTask = Task.Run(async () =>
@@ -79,12 +79,12 @@ public class HashAggregatorPipeline
                 //});
 
                 // Ensure the printTask is awaited or handled properly in your pipeline's lifecycle.
-                var hash = _hasher.ProcessLine(line);
+                var hash = _hasher.ProcessLine(logLine.Line);
                 if (hash != null)
                 {
                     _globalResults.AddOrUpdate(
                         hash,
-                        _ => (line, 1),
+                        _ => (logLine.Line, 1),
                         (_, oldVal) => (oldVal.Representative, oldVal.Count + 1)
                     );
                 }
@@ -104,7 +104,7 @@ public class HashAggregatorPipeline
         // 5) We define the overall run task
         _runTask = Task.Run(async () =>
         {
-            // a) Start enumerating file paths => triggers line emission
+            // a) Start enumerating file paths => triggers logLine emission
             await logLinesProducer.PostAllFilePathsAsync(cancellationToken);
 
             // b) Wait for the reading pipeline to finish
@@ -127,7 +127,7 @@ public class HashAggregatorPipeline
     }
 
     /// <summary>
-    /// Returns an in-memory data of (line, count), sorted descending by count (then by line).
+    /// Returns an in-memory data of (logLine, count), sorted descending by count (then by logLine).
     /// Will await the pipeline first if it isn't completed.
     /// </summary>
     public async Task<List<(string line, int count)>> GetOrderedResultsAsync()
@@ -165,7 +165,7 @@ public class HashAggregatorPipeline
 
         var data = ProduceResults();
         //await File.WriteAllLinesAsync(_resultsFilePath, data.Select(x =>
-        //    JsonSerializer.Serialize(new { Line = x.line, Count = x.count })
+        //    JsonSerializer.Serialize(new { Line = x.logLine, Count = x.count })
         //));
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Report");
