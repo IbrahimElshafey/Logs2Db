@@ -1,14 +1,12 @@
 ﻿
-namespace CCSS_DSP_LogsParser;
+using LogsProcessingCore.Base;
 
-public class ParsedLogLine
+namespace CCSS_DSP_LogsParser;
+public class ParsedLogLine : ParsedLogLineBase
 {
     public int Id { get; set; }
-    public DateTime? Timestamp { get; set; }
     public string? Thread { get; set; }
     public string? Logger { get; set; }
-    public string? Level { get; set; }
-    public string? Message { get; set; }
     public string? FileName { get; set; }
     public string? MethodName { get; set; }
     public int? CodeLineNumber { get; set; }
@@ -17,9 +15,6 @@ public class ParsedLogLine
     public string? MachineName { get; set; }
     public string? HostName { get; set; }
     public string? AssemblyVersion { get; set; }
-
     public string? LineHash { get; set; }
-    public string? Source { get; set; }
-    public string? LogFileName { get; set; }
 }
 

@@ -94,8 +94,9 @@ internal partial class Log4NetLogs2Db
             return null;
 
         parsed.LineHash = ComputeHash(parsed.Message);
-        parsed.LogFileName = Path.GetFileName(logLine.FilePath);
+        parsed.FilePath = logLine.FilePath;
         parsed.Source = _sourceSystem;
+        parsed.LogLineNumber = logLine.LineIndex;
         return parsed;
     }
 
