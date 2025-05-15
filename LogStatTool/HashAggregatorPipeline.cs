@@ -108,7 +108,7 @@ public class HashAggregatorPipeline
             await logLinesProducer.PostAllFilePathsAsync(cancellationToken);
 
             // b) Wait for the reading pipeline to finish
-            await logLinesProducer.Completion.ConfigureAwait(false);
+            //await logLinesProducer.Completion.ConfigureAwait(false);
             await hashLinesBlock.Completion.ConfigureAwait(false);
             // d) If requested, save results to file
             if (string.IsNullOrWhiteSpace(_options.ResultsFilePath) is false)

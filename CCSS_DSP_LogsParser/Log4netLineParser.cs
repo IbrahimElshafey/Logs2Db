@@ -22,11 +22,21 @@ namespace CCSS_DSP_LogsParser
         /// Returns null if the format isn't recognized or parsing fails.
         /// Caches the parts count per filePath to skip re-detecting the format.
         /// </summary>
+        public static ParsedLogLine Parse(LogLineSpan logLine)
+        {
+            var span = logLine.Line.Span;
+            string fileKey = logLine.FilePath;
+            return ParseLogLineInternal(span, fileKey);
+        }
         public static ParsedLogLine Parse(LogLine logLine)
         {
             var span = logLine.Line.AsSpan();
             string fileKey = logLine.FilePath;
+            return ParseLogLineInternal(span, fileKey);
+        }
 
+        private static ParsedLogLine ParseLogLineInternal(ReadOnlySpan<char> span, string fileKey)
+        {
             // detect and cache parts count for this file without capturing span in a lambda
             if (!_fileFormatCache.TryGetValue(fileKey, out int formatParts))
             {

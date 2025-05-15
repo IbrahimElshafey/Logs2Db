@@ -5,7 +5,6 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks.Dataflow;
 
 namespace LogsProcessingCore.Base;
-
 public class LogFileLineProducer
 {
     private readonly LogFilesOptions _options;
@@ -42,6 +41,7 @@ public class LogFileLineProducer
         // B. TransformManyBlock => read lines from each file in parallel
         var readFileBlock = new TransformManyBlock<string, LogLine>(
             filePath => ReadFileByChunksAsync(filePath, progress, cancellationToken),
+            //filePath => ReadLinesSync(filePath, progress),
             new ExecutionDataflowBlockOptions
             {
                 MaxDegreeOfParallelism = _dataflowConfiguration.PathToLinesParallelism,
@@ -53,7 +53,6 @@ public class LogFileLineProducer
 
         // 3) Return readFileBlock as the “source” block 
         // that downstream can link from:
-        LinesBlock = readFileBlock;
         FilePathsBlock = filePathsBlock;
 
         return readFileBlock;
@@ -65,16 +64,16 @@ public class LogFileLineProducer
     /// </summary>
     private ITargetBlock<string>? FilePathsBlock { get; set; }
 
-    /// <summary>
-    /// The “root” source block that emits strings (log lines).
-    /// </summary>
-    private ISourceBlock<LogLine>? LinesBlock { get; set; }
+    ///// <summary>
+    ///// The “root” source block that emits strings (log lines).
+    ///// </summary>
+    //private ISourceBlock<LogLine>? LinesBlock { get; set; }
 
-    /// <summary>
-    /// We expose a Task you can await to know when the reading pipeline completes. Usually, you'll call <see
-    /// cref="FilePathsBlock.Complete()"/> after  posting all paths, and then await this property.
-    /// </summary>
-    public Task Completion => LinesBlock?.Completion ?? Task.CompletedTask;
+    ///// <summary>
+    ///// We expose a Task you can await to know when the reading pipeline completes. Usually, you'll call <see
+    ///// cref="FilePathsBlock.Complete()"/> after  posting all paths, and then await this property.
+    ///// </summary>
+    //public Task Completion => LinesBlock?.Completion ?? Task.CompletedTask;
 
     /// <summary>
     /// Actually enumerates files from the folder/pattern, and posts them into the pipeline (FilePathsBlock).  This is
@@ -127,6 +126,20 @@ public class LogFileLineProducer
     // For calculating % progress
     private int _filesProcessedSoFar = 0;
     private int _totalFilesCount = 0;
+
+    public IEnumerable<LogLine> ReadLinesSync(string filePath, IProgress<float>? progress)
+    {
+        using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, FileOptions.SequentialScan);
+        using var sr = new StreamReader(fs, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 64 * 1024);
+        string? line; int index = 1;
+        while ((line = sr.ReadLine()) != null)
+        {
+            yield return new LogLine(line, index++, filePath);
+        }
+        var soFar = Interlocked.Increment(ref _filesProcessedSoFar);
+        float percent = soFar / (float)_totalFilesCount * 100f;
+        progress?.Report(percent);
+    }
 
     /// <summary>
     /// This method reads a single file in chunks, yielding lines. Called by TransformManyBlock for each file path.

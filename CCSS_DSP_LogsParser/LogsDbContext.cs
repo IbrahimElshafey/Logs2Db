@@ -13,6 +13,8 @@ public class LogsDbContext : DbContext
     {
         _connectionString = $"Data Source={dbName}.db";
         Database.EnsureCreated();
+        ChangeTracker.AutoDetectChangesEnabled = false;
+        ChangeTracker.QueryTrackingBehavior = Microsoft.EntityFrameworkCore.QueryTrackingBehavior.NoTracking;
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
