@@ -7,7 +7,6 @@ public class ParsedLogLine : ParsedLogLineBase
     public int Id { get; set; }
     public string? Thread { get; set; }
     public string? Logger { get; set; }
-    public string? FileName { get; set; }
     public string? MethodName { get; set; }
     public int? CodeLineNumber { get; set; }
     public string? Ndc { get; set; }

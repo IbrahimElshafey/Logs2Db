@@ -9,9 +9,10 @@ public class LogsDbContext : DbContext
 
     private readonly string _connectionString;
 
-    public LogsDbContext(string dbName = "CCSS_DSP_Erros")
+    public LogsDbContext(string dbName = "CCSS_DSP_Erros", bool skipEnsureCreated = false)
     {
         _connectionString = $"Data Source={dbName}.db";
+        if(skipEnsureCreated is false)
         Database.EnsureCreated();
         ChangeTracker.AutoDetectChangesEnabled = false;
         ChangeTracker.QueryTrackingBehavior = Microsoft.EntityFrameworkCore.QueryTrackingBehavior.NoTracking;

@@ -14,6 +14,18 @@ namespace CCSS_DSP_LogsParser
             _lineReader = new FileChannelReader<ParsedLogLine>(logFilePath, channelCapacity: 500, bufferSize: 64 * 1024);
         }
 
+        public async IAsyncEnumerable<ParsedLogLine> ParseLogsAsync2(CancellationToken cancellationToken = default)
+        {
+            // Pass ProcessLogLine as the processing function
+            var reader = await _lineReader.ProcessLogFileAsync(ProcessLogLine);
+            await foreach (var parsed in reader.ReadAllAsync(cancellationToken))
+            {
+                if (parsed is not null)
+                {
+                    yield return parsed;
+                }
+            }
+        }
         public async Task<List<ParsedLogLine>> ParseLogsAsync(CancellationToken cancellationToken = default)
         {
             // Pass ProcessLogLine as the processing function
@@ -34,9 +46,9 @@ namespace CCSS_DSP_LogsParser
         private ParsedLogLine? ProcessLogLine(LogLineSpan logSpan)
         {
             var raw = logSpan.Line.Span;
-            if (!raw.Contains("| ERROR |".AsSpan(), StringComparison.Ordinal) &&
-                !raw.Contains("| WARN  |".AsSpan(), StringComparison.Ordinal))
-                return null;
+            //if (!raw.Contains("| ERROR |".AsSpan(), StringComparison.Ordinal) &&
+            //    !raw.Contains("| WARN  |".AsSpan(), StringComparison.Ordinal))
+            //    return null;
 
             var parsed = Log4netLineParser.Parse(logSpan);
             if (parsed == null)

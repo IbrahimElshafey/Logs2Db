@@ -32,6 +32,7 @@ namespace LogsProcessingCore.Base
             _bufferSize = bufferSize;
             _channelOptions = new BoundedChannelOptions(channelCapacity)
             {
+                Capacity = 1000,
                 SingleWriter = true,
                 SingleReader = false,
                 FullMode = BoundedChannelFullMode.Wait
@@ -42,7 +43,7 @@ namespace LogsProcessingCore.Base
         /// Starts async processing: reads file in pooled byte buffers, decodes into char buffers,
         /// splits lines via ReadOnlySpan&lt;char&gt;, wraps each in LogLineSpan, and writes to channel.
         /// </summary>
-        public async Task<ChannelReader<T>> ProcessLogFileAsync(Func<LogLineSpan, T> processingFunction)
+        public async Task<ChannelReader<T>> ProcessLogFileAsyncC(Func<LogLineSpan, T> processingFunction)
         {
             if (processingFunction == null) throw new ArgumentNullException(nameof(processingFunction));
 
@@ -147,5 +148,27 @@ namespace LogsProcessingCore.Base
             await Task.Yield();
             return channel.Reader;
         }
+
+        public async Task<ChannelReader<T>> ProcessLogFileAsync(Func<LogLineSpan, T> processingFunction)
+        {
+            var channel = Channel.CreateBounded<T>(_channelOptions);
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    int i = 0;
+                    foreach (var line in File.ReadLines(_filePath))
+                    {
+                        var item = processingFunction(new(line.AsMemory(), i++, _filePath));
+                        await channel.Writer.WriteAsync(item);
+                    }
+                    channel.Writer.Complete();
+                }
+                catch (Exception ex) { channel.Writer.Complete(ex); }
+            });
+            await Task.Yield();
+            return channel.Reader;
+        }
+
     }
 }
