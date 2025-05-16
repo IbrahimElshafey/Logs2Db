@@ -14,7 +14,7 @@ namespace CCSS_DSP_LogsParser
             _lineReader = new FileChannelReader<ParsedLogLine>(logFilePath, channelCapacity: 500, bufferSize: 64 * 1024);
         }
 
-        public async IAsyncEnumerable<ParsedLogLine> ParseLogsAsync2(CancellationToken cancellationToken = default)
+        public async IAsyncEnumerable<ParsedLogLine> ParseLogsAsync(CancellationToken cancellationToken = default)
         {
             // Pass ProcessLogLine as the processing function
             var reader = await _lineReader.ProcessLogFileAsync(ProcessLogLine);
@@ -25,21 +25,6 @@ namespace CCSS_DSP_LogsParser
                     yield return parsed;
                 }
             }
-        }
-        public async Task<List<ParsedLogLine>> ParseLogsAsync(CancellationToken cancellationToken = default)
-        {
-            // Pass ProcessLogLine as the processing function
-            var reader = await _lineReader.ProcessLogFileAsync(ProcessLogLine);
-            var result = new List<ParsedLogLine>();
-
-            await foreach (var parsed in reader.ReadAllAsync(cancellationToken))
-            {
-                if (parsed is not null)
-                {
-                    result.Add(parsed);
-                }
-            }
-            return result;
         }
 
         // Changed signature: takes LogLineSpan, returns ParsedLogLine?

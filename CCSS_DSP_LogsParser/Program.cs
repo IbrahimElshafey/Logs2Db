@@ -48,23 +48,27 @@ internal class Program
         // Consumer Task
         var consumer = Task.Run(async () =>
         {
+            var batchSize = 10000;
+            var batch = new List<ParsedLogLine>(batchSize);
+            int batchCount = 0;
             await foreach (var item in channel.Reader.ReadAllAsync())
             {
-             
+                batch.Add(item);
+                if (batch.Count >= batchSize)
+                {
+                    batchCount++;
+                    Console.WriteLine($"Saving batch #{batchCount} with {batch.Count} log lines...");
+                    await SaveBatchAsync(batch);
+                    batch.Clear();
+                }
             }
-            //var batch = new List<ParsedLogLine>(1000);
-            //await foreach (var item in channel.Reader.ReadAllAsync())
-            //{
-            //    batch.Add(item);
-            //    if (batch.Count >= 1000)
-            //    {
-            //        await SaveBatchAsync(batch);
-            //        batch.Clear();
-            //    }
-            //}
 
-            //if (batch.Count > 0)
-            //    await SaveBatchAsync(batch);
+            if (batch.Count > 0)
+            {
+                batchCount++;
+                Console.WriteLine($"Saving final batch #{batchCount} with {batch.Count} log lines...");
+                await SaveBatchAsync(batch);
+            }
         });
 
         // Producer logic
@@ -75,10 +79,12 @@ internal class Program
             Console.WriteLine($"Progress: {percent:F2}% ({current}/{totalFiles}) - Processing file: {file}");
 
             var parser = new SimpleLogParser(file, sourceSystem);
-            var logLines = await parser.ParseLogsAsync(ct);
-            foreach (var logLine in logLines)
+            await foreach (var parsed in parser.ParseLogsAsync(ct))
             {
-                await channel.Writer.WriteAsync(logLine, ct);
+                if (parsed is not null)
+                {
+                    await channel.Writer.WriteAsync(parsed, ct);
+                }
             }
         });
 
@@ -88,55 +94,10 @@ internal class Program
 
         Console.WriteLine("All log lines saved to database.");
     }
-    //private static async Task SaveBatchAsync(List<ParsedLogLine> batch)
-    //{
-    //    using var db = new LogsDbContext(skipEnsureCreated: true);
-    //    db.ParsedLogLines.AddRange(batch);
-    //    await db.SaveChangesAsync();
-    //}
-    //private static async Task ProcessDirectoryAsyncO(string directoryPath, string sourceSystem)
-    //{
-    //    var logFiles = Directory.EnumerateFiles(directoryPath, "*.log", SearchOption.AllDirectories).ToList();
-    //    int totalFiles = logFiles.Count;
-    //    int processed = 0;
-    //    var parallelOptions = new ParallelOptions
-    //    {
-    //        MaxDegreeOfParallelism = Environment.ProcessorCount,
-    //        TaskScheduler = TaskScheduler.Default
-    //    };
-    //    var allDbItems = new ConcurrentBag<ParsedLogLine>();
-    //    await Parallel.ForEachAsync(logFiles, parallelOptions, async (file, ct) =>
-    //    {
-    //        int current = Interlocked.Increment(ref processed);
-    //        double percent = current * 100.0 / totalFiles;
-    //        Console.WriteLine($"Progress: {percent:F2}% ({current}/{totalFiles}) - Processing file: {file}");
-    //        var parser = new SimpleLogParser(file, sourceSystem);
-    //        //var logLines = await parser.ParseLogsAsync(ct);
-    //        //foreach (var logLine in logLines)
-    //        //{
-    //        //    allDbItems.Add(logLine);
-    //        //}
-    //        await foreach (var logLine in parser.ParseLogsAsync2(ct))
-    //        {
-    //            allDbItems.Add(logLine);
-    //        }
-    //    });List<ParsedLogLine>
-    //    using (var db = new LogsDbContext())
-    //    {
-    //        Console.WriteLine($"Saving {allDbItems.Count} log lines to database...");
-    //        db.ParsedLogLines.AddRange(allDbItems);
-    //        await db.SaveChangesAsync();
-    //        db.ChangeTracker.Clear();
-    //        Console.WriteLine("All log lines saved to database.");
-    //    }
-    //    GC.Collect();
-    //}
-
-    //private static async Task TplDataFlow()
-    //{
-    //    var ccssLogProcessor = new Log4NetLogs2Db(@"V:\CCSS", "CCSS");
-    //    await ccssLogProcessor.ParseLogs();
-    //    ccssLogProcessor = new Log4NetLogs2Db(@"V:\DSP-All-Logs", "DSP");
-    //    await ccssLogProcessor.ParseLogs();
-    //}
+    private static async Task SaveBatchAsync(List<ParsedLogLine> batch)
+    {
+        using var db = new LogsDbContext();
+        db.ParsedLogLines.AddRange(batch);
+        await db.SaveChangesAsync();
+    }
 }
