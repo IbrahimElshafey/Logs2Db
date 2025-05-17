@@ -22,12 +22,21 @@ internal class Program
 
     private static async Task SimpleParser()
     {
+        var process = System.Diagnostics.Process.GetCurrentProcess();
+        long ramBefore = process.WorkingSet64;
+        Console.WriteLine($"RAM used before processing: {ramBefore / (1024 * 1024)} MB");
+
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         // Process CCSS logs
         await ProcessDirectoryAsync(@"V:\CCSS", "CCSS");
         // Process DSP logs
         await ProcessDirectoryAsync(@"V:\DSP-All-Logs", "DSP");
         stopwatch.Stop();
+
+        process.Refresh();
+        long ramAfter = process.WorkingSet64;
+        Console.WriteLine($"RAM used after processing: {ramAfter / (1024 * 1024)} MB");
+
         Console.WriteLine($"Processing finished in {stopwatch.Elapsed}");
         Console.ReadLine();
     }
@@ -48,7 +57,7 @@ internal class Program
         // Consumer Task
         var consumer = Task.Run(async () =>
         {
-            var batchSize = 10000;
+            var batchSize = 1000;
             var batch = new List<ParsedLogLine>(batchSize);
             int batchCount = 0;
             await foreach (var item in channel.Reader.ReadAllAsync())
@@ -57,7 +66,7 @@ internal class Program
                 if (batch.Count >= batchSize)
                 {
                     batchCount++;
-                    Console.WriteLine($"Saving batch #{batchCount} with {batch.Count} log lines...");
+                    //Console.WriteLine($"Saving batch #{batchCount} with {batch.Count} log lines...");
                     await SaveBatchAsync(batch);
                     batch.Clear();
                 }
@@ -66,7 +75,7 @@ internal class Program
             if (batch.Count > 0)
             {
                 batchCount++;
-                Console.WriteLine($"Saving final batch #{batchCount} with {batch.Count} log lines...");
+                //Console.WriteLine($"Saving final batch #{batchCount} with {batch.Count} log lines...");
                 await SaveBatchAsync(batch);
             }
         });
@@ -74,10 +83,6 @@ internal class Program
         // Producer logic
         await Parallel.ForEachAsync(logFiles, parallelOptions, async (file, ct) =>
         {
-            int current = Interlocked.Increment(ref processed);
-            double percent = current * 100.0 / totalFiles;
-            Console.WriteLine($"Progress: {percent:F2}% ({current}/{totalFiles}) - Processing file: {file}");
-
             var parser = new SimpleLogParser(file, sourceSystem);
             await foreach (var parsed in parser.ParseLogsAsync(ct))
             {
@@ -86,6 +91,10 @@ internal class Program
                     await channel.Writer.WriteAsync(parsed, ct);
                 }
             }
+
+            int current = Interlocked.Increment(ref processed);
+            double percent = current * 100.0 / totalFiles;
+            Console.WriteLine($"Progress: {percent:F2}% ({current}/{totalFiles})");
         });
 
         // Signal completion
@@ -99,5 +108,25 @@ internal class Program
         using var db = new LogsDbContext();
         db.ParsedLogLines.AddRange(batch);
         await db.SaveChangesAsync();
+    }
+
+    private static async Task TplDataFlow()
+    {
+        var process = System.Diagnostics.Process.GetCurrentProcess();
+        long ramBefore = process.WorkingSet64;
+        Console.WriteLine($"RAM used before processing: {ramBefore / (1024 * 1024)} MB");
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+        var ccssLogProcessor = new Log4NetLogs2Db(@"V:\CCSS", "CCSS");
+        await ccssLogProcessor.ParseLogs();
+        ccssLogProcessor = new Log4NetLogs2Db(@"V:\DSP-All-Logs", "DSP");
+        await ccssLogProcessor.ParseLogs();
+
+        stopwatch.Stop();
+        process.Refresh();
+        long ramAfter = process.WorkingSet64;
+        Console.WriteLine($"RAM used after processing: {ramAfter / (1024 * 1024)} MB");
+        Console.WriteLine($"Processing finished in {stopwatch.Elapsed}");
     }
 }

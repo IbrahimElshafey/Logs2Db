@@ -31,9 +31,9 @@ namespace CCSS_DSP_LogsParser
         private ParsedLogLine? ProcessLogLine(LogLineSpan logSpan)
         {
             var raw = logSpan.Line.Span;
-            //if (!raw.Contains("| ERROR |".AsSpan(), StringComparison.Ordinal) &&
-            //    !raw.Contains("| WARN  |".AsSpan(), StringComparison.Ordinal))
-            //    return null;
+            if (!raw.Contains("| ERROR |".AsSpan(), StringComparison.Ordinal) &&
+                !raw.Contains("| WARN  |".AsSpan(), StringComparison.Ordinal))
+                return null;
 
             var parsed = Log4netLineParser.Parse(logSpan);
             if (parsed == null)
